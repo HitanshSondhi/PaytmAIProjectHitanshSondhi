@@ -62,11 +62,11 @@ const solutions = [
 
 const ProblemSolution = () => {
   return (
-    <section id="problem-solution" className="relative py-24 lg:py-32 w-full bg-gradient-to-b from-background via-background to-background/95 flex flex-col items-center">
+    <section id="problem-solution" className="relative min-h-screen scroll-mt-20 py-24 lg:py-32 w-full bg-gradient-to-b from-background via-background to-background/95 flex flex-col items-center justify-center">
       {/* Animated background elements. Positioned securely without translate-x offsets that could break alignment */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[10%] left-[10%] w-[600px] h-[600px] bg-red-500/5 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-[10%] left-[10%] w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-background/80" />
       </div>
 
@@ -247,7 +247,7 @@ const ProblemSolution = () => {
           onClick={(e) => {
             const section = e.currentTarget.closest('section');
             if (section?.nextElementSibling) {
-              section.nextElementSibling.scrollIntoView({ behavior: 'smooth' });
+              section.nextElementSibling.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
           }}
           className="flex items-center justify-center w-12 h-12 rounded-full bg-background/80 backdrop-blur-md border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)] text-muted-foreground hover:text-white hover:bg-white/5 hover:border-white/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50"

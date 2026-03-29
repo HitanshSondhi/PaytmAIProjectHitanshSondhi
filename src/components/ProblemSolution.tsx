@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
-import { 
-  BookOpen, 
-  Brain, 
-  Phone, 
-  BarChart3, 
-  Mic, 
-  FileText, 
-  MessageSquare, 
+import {
+  BookOpen,
+  Brain,
+  Phone,
+  BarChart3,
+  Mic,
+  FileText,
+  MessageSquare,
   TrendingUp,
   ArrowRight,
   X,
@@ -69,10 +69,10 @@ const ProblemSolution = () => {
         <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-background/80" />
       </div>
-      
+
       {/* 1. Wrapped the entire section content inside a properly centered container */}
       <div className="w-full max-w-6xl mx-auto px-6 lg:px-8 relative z-10 flex flex-col items-center justify-center">
-        
+
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -81,7 +81,7 @@ const ProblemSolution = () => {
           transition={{ duration: 0.6 }}
           className="text-center w-full mb-16 lg:mb-20 flex flex-col items-center justify-center mx-auto"
         >
-          <motion.span 
+          <motion.span
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
@@ -102,7 +102,7 @@ const ProblemSolution = () => {
         <div className="relative w-full">
           {/* Strict 1fr auto 1fr balanced layout. Enforced minmax(0,1fr) to prevent text width from displacing the center */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-8 lg:gap-12 items-stretch w-full mx-auto justify-center">
-            
+
             {/* Problems Card */}
             {/* Removed x-axis offsets (-40) and replaced with opacity/y scaling so no physical shifting occurs */}
             <motion.div
@@ -153,7 +153,7 @@ const ProblemSolution = () => {
             {/* Center Connection / Arrow */}
             {/* Placed explicitly within an auto column of the grid for perfectly mathematical alignment */}
             <div className="hidden lg:flex flex-col items-center justify-center w-16 pointer-events-none z-20">
-               <motion.div
+              <motion.div
                 initial={{ scale: 0 }}
                 whileInView={{ scale: 1 }}
                 viewport={{ once: true }}
@@ -213,11 +213,11 @@ const ProblemSolution = () => {
 
         {/* Stats Bar */}
         <motion.div
-           initial={{ opacity: 0, y: 30 }}
-           whileInView={{ opacity: 1, y: 0 }}
-           viewport={{ once: true }}
-           transition={{ delay: 0.6 }}
-           className="mt-12 lg:mt-16 w-full max-w-6xl mx-auto"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.6 }}
+          className="mt-12 lg:mt-16 w-full max-w-6xl mx-auto"
         >
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
             {[

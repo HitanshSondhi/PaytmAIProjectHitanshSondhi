@@ -1,8 +1,15 @@
 import type { Customer, DashboardStats, ScoreData, TransactionResult, UdhaarEntry, VoiceResponse } from "../types";
 
 // In development with Vite proxy, use relative URLs (no base)
-// In production, use VITE_API_URL from environment
-const BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:3001');
+// In production, prefer VITE_API_URL from environment, fallback to deployed Render API.
+const DEFAULT_PROD_API_URL = 'https://paytmaiprojecthitanshsondhi.onrender.com';
+const envApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+const resolvedBaseUrl = import.meta.env.DEV ? '' : (envApiUrl || DEFAULT_PROD_API_URL);
+const BASE = resolvedBaseUrl.replace(/\/$/, '');
+
+if (!import.meta.env.DEV && !envApiUrl) {
+  console.warn(`VITE_API_URL is not set. Falling back to ${DEFAULT_PROD_API_URL}`);
+}
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   try {

@@ -52,7 +52,7 @@ export function useElevenLabsTTS() {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
       utteranceRef.current = utterance;
-      
+
       utterance.onend = () => {
         setIsSpeaking(false);
         utteranceRef.current = null;
@@ -61,7 +61,7 @@ export function useElevenLabsTTS() {
         setIsSpeaking(false);
         utteranceRef.current = null;
       };
-      
+
       window.speechSynthesis.speak(utterance);
       return;
     }
@@ -131,7 +131,7 @@ export function useElevenLabsTTS() {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
       utteranceRef.current = utterance;
-      
+
       utterance.onend = () => {
         setIsSpeaking(false);
         utteranceRef.current = null;
@@ -140,7 +140,7 @@ export function useElevenLabsTTS() {
         setIsSpeaking(false);
         utteranceRef.current = null;
       };
-      
+
       window.speechSynthesis.speak(utterance);
       setIsSpeaking(true);
     }

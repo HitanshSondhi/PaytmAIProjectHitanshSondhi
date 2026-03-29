@@ -6,17 +6,38 @@ import express, { NextFunction, Request, Response } from "express";
 import remindRouter from "./routes/remind";
 import scoreRouter from "./routes/score";
 import statsRouter from "./routes/stats";
+import testWhatsappRouter from "./routes/test-whatsapp";
 import transactionsRouter from "./routes/transactions";
 import udhaarRouter from "./routes/udhaar";
 import voiceRouter from "./routes/voice";
-import testWhatsappRouter from "./routes/test-whatsapp";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
+const frontendUrl = (process.env.FRONTEND_URL ?? '').trim();
+const frontendUrls = (process.env.FRONTEND_URLS ?? '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [
+  frontendUrl || 'http://localhost:5173',
+  ...frontendUrls,
+  'https://paytm-ai-project-hitansh-sondhi.vercel.app',
+  /https:\/\/paytm-ai-project-hitansh-sondhi.*\.vercel\.app$/,
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, cron jobs)
+    if (!origin) return callback(null, true);
+    const allowed = allowedOrigins.some((o) =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    if (allowed) return callback(null, true);
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-cron-secret'],
 }));
 

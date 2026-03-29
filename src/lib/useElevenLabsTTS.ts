@@ -3,12 +3,13 @@ import type { Lang } from "../types";
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 
-// ElevenLabs voice IDs - you can customize these
+// ElevenLabs voice IDs - using clearer, more natural voices for better intelligibility
+// These voices are optimized for multilingual content and Indian languages
 const VOICE_IDS = {
-  'hi-IN': 'pNInz6obpgDQGcFmaJgB', // Adam - multilingual
-  'en-IN': 'pNInz6obpgDQGcFmaJgB', // Adam
-  'ta-IN': 'pNInz6obpgDQGcFmaJgB', // Adam
-  'te-IN': 'pNInz6obpgDQGcFmaJgB', // Adam
+  'hi-IN': 'EXAVITQu4vr4xnSDxMaL', // Bella - clear female voice, excellent for Hindi
+  'en-IN': '21m00Tcm4TlvDq8ikWAM', // Rachel - professional, clear English voice
+  'ta-IN': 'EXAVITQu4vr4xnSDxMaL', // Bella - works well with Tamil
+  'te-IN': 'EXAVITQu4vr4xnSDxMaL', // Bella - works well with Telugu
 };
 
 export function useElevenLabsTTS() {
@@ -85,9 +86,9 @@ export function useElevenLabsTTS() {
           text,
           model_id: 'eleven_multilingual_v2',
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.0,
+            stability: 0.75,        // Higher stability = more consistent, clearer pronunciation
+            similarity_boost: 0.85, // Higher similarity = more natural voice characteristics
+            style: 0.0,             // Neutral style for professional clarity
             use_speaker_boost: true,
           },
         }),

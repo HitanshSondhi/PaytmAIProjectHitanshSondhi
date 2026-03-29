@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, Plus, TrendingUp } from "lucide-react";
+import { ArrowLeft, Plus, TrendingUp, Clock, AlertTriangle, SortAsc } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
@@ -9,6 +9,9 @@ import { api } from "../lib/api";
 import { useSarvamTTS } from "../lib/useSarvamTTS";
 import { useToast } from "../lib/useToast";
 import type { Customer, DashboardStats, PaymentMethod, ScoreData, UdhaarEntry } from "../types";
+
+type CustomerSortOption = 'name' | 'recent' | 'credit_score' | 'activity';
+type LedgerSortOption = 'customer' | 'amount' | 'due_date' | 'status' | 'credit_score';
 
 // --- REUSABLE COMPONENTS FROM REFERENCE ---
 
@@ -136,7 +139,7 @@ const Sparkline = ({ data }: { data: number[] }) => {
   );
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ status, dueDate }: { status: string; dueDate?: string }) => {
   const styles: Record<string, string> = {
     Due: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
     Overdue: "bg-red-500/20 text-red-400 border border-red-500/30",
@@ -146,7 +149,18 @@ const StatusBadge = ({ status }: { status: string }) => {
   let displayStatus = status;
   if (status === "OVERDUE") displayStatus = "Overdue";
   else if (status === "PAID") displayStatus = "Paid";
-  else if (status === "PENDING" || status === "DUE") displayStatus = "Due";
+  else if (status === "PENDING" || status === "DUE") {
+    // Check if due date has passed for pending/due items
+    if (dueDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(dueDate);
+      due.setHours(0, 0, 0, 0);
+      displayStatus = due < today ? "Overdue" : "Due";
+    } else {
+      displayStatus = "Due";
+    }
+  }
 
   return (
     <span
@@ -166,6 +180,8 @@ export default function Dashboard() {
   const [ledger, setLedger] = useState<UdhaarEntry[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [scores, setScores] = useState<Record<number, ScoreData>>({});
+  const [customerSort, setCustomerSort] = useState<CustomerSortOption>('name');
+  const [ledgerSort, setLedgerSort] = useState<LedgerSortOption>('due_date');
   
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
@@ -184,12 +200,12 @@ export default function Dashboard() {
   const { toast, showToast } = useToast();
   const { speak } = useSarvamTTS();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (sort: CustomerSortOption = customerSort) => {
     try {
       const [statsRes, udhaarRes, customersRes] = await Promise.all([
         api.stats(),
         api.udhaar(),
-        api.customers(),
+        api.customers(sort),
       ]);
       setStats(statsRes);
       setLedger(udhaarRes.ledger);
@@ -209,7 +225,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [customerSort]);
 
   useEffect(() => {
     fetchData();
@@ -224,6 +240,31 @@ export default function Dashboard() {
       clearInterval(statsInterval);
     };
   }, [fetchData]);
+
+  // Handle sort change
+  const handleSortChange = (sort: CustomerSortOption) => {
+    setCustomerSort(sort);
+    fetchData(sort);
+  };
+
+  // Sort ledger entries
+  const sortedLedger = [...ledger].sort((a, b) => {
+    switch (ledgerSort) {
+      case 'customer':
+        return a.customer_name.localeCompare(b.customer_name);
+      case 'amount':
+        return b.amount - a.amount; // Highest first
+      case 'due_date':
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime(); // Earliest first
+      case 'status':
+        const statusOrder = { 'OVERDUE': 0, 'PENDING': 1, 'PAID': 2 };
+        return (statusOrder[a.status as keyof typeof statusOrder] ?? 1) - (statusOrder[b.status as keyof typeof statusOrder] ?? 1);
+      case 'credit_score':
+        return a.credit_score - b.credit_score; // Lowest (risky) first
+      default:
+        return 0;
+    }
+  });
 
   const handleAddCustomer = async () => {
     if (!newCustomerName.trim() || !newCustomerPhone.trim()) return;
@@ -342,7 +383,65 @@ export default function Dashboard() {
 
         {/* UDHAAR LEDGER */}
         <div className="mb-10">
-          <h2 className="text-lg font-bold mb-4 ml-1">Udhaar Ledger</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold ml-1">Udhaar Ledger</h2>
+            {/* Ledger Sort Filter Buttons */}
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+              <button
+                onClick={() => setLedgerSort('customer')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  ledgerSort === 'customer'
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <SortAsc size={12} />
+                Name
+              </button>
+              <button
+                onClick={() => setLedgerSort('amount')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  ledgerSort === 'amount'
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                ₹ Amount
+              </button>
+              <button
+                onClick={() => setLedgerSort('due_date')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  ledgerSort === 'due_date'
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <Clock size={12} />
+                Due Date
+              </button>
+              <button
+                onClick={() => setLedgerSort('status')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  ledgerSort === 'status'
+                    ? 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <AlertTriangle size={12} />
+                Status
+              </button>
+              <button
+                onClick={() => setLedgerSort('credit_score')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  ledgerSort === 'credit_score'
+                    ? 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                Risk
+              </button>
+            </div>
+          </div>
           <div className="bg-[#1a1c29]/60 backdrop-blur-xl rounded-2xl border border-white/5 overflow-x-auto">
             <div className="min-w-[600px]">
               <div className="grid grid-cols-5 text-xs text-gray-400 font-medium px-6 py-4 border-b border-white/5">
@@ -354,13 +453,13 @@ export default function Dashboard() {
               </div>
               
               <div className="divide-y divide-white/5">
-                {ledger.map((item) => (
+                {sortedLedger.map((item) => (
                   <div key={item.id} className="grid grid-cols-5 items-center px-6 py-4 hover:bg-white/[0.02] transition-colors">
                     <div className="col-span-1 font-medium text-sm text-gray-200">{item.customer_name}</div>
                     <div className="col-span-1 text-sm">{formatCurrency(item.amount)}</div>
                     <div className="col-span-1 text-sm text-gray-400">{formatDate(item.due_date)}</div>
                     <div className="col-span-1">
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={item.status} dueDate={item.due_date} />
                     </div>
                     <div className="col-span-1 flex justify-end">
                        {/* Calculate max score for 100/1000 scales */}
@@ -368,7 +467,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
-                {ledger.length === 0 && (
+                {sortedLedger.length === 0 && (
                   <div className="text-center py-6 text-white/50">No ledger entries</div>
                 )}
               </div>
@@ -378,7 +477,56 @@ export default function Dashboard() {
 
         {/* CUSTOMER CREDIT SCORES */}
         <div>
-          <h2 className="text-lg font-bold mb-4 ml-1">Customer Credit Scores</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold ml-1">Customer Credit Scores</h2>
+            {/* Sort Filter Buttons */}
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+              <button
+                onClick={() => handleSortChange('name')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  customerSort === 'name'
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <SortAsc size={12} />
+                Name
+              </button>
+              <button
+                onClick={() => handleSortChange('recent')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  customerSort === 'recent'
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <Clock size={12} />
+                Recent
+              </button>
+              <button
+                onClick={() => handleSortChange('credit_score')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  customerSort === 'credit_score'
+                    ? 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <AlertTriangle size={12} />
+                Risk
+              </button>
+              <button
+                onClick={() => handleSortChange('activity')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  customerSort === 'activity'
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                    : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <TrendingUp size={12} />
+                Activity
+              </button>
+            </div>
+          </div>
           {/* Horizontal scroll container for cards */}
           <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar snap-x">
             {customers.map((customer) => {
@@ -524,13 +672,13 @@ export default function Dashboard() {
           <div>
             <label className={labelClassName}>Amount</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50">₹</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none">₹</span>
               <input
                 type="number"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 placeholder="0"
-                className={`${inputClassName} pl-8 bg-white/5 border-white/10`}
+                className={`${inputClassName} !pl-10 bg-white/5 border-white/10`}
               />
             </div>
           </div>

@@ -8,7 +8,7 @@ import { VoiceOrb } from "../components/VoiceOrb";
 import { api } from "../lib/api";
 import { useElevenLabsTTS } from "../lib/useElevenLabsTTS";
 import { useSpeechRecognition } from "../lib/useSpeechRecognition";
-import type { Lang, OrbState, VoiceResponse } from "../types";
+import type { Lang, OrbState, PendingUdhaar, VoiceResponse } from "../types";
 
 const DEMO_COMMANDS = [
   { label: "Collection", transcript: "aaj ka collection batao" },
@@ -23,6 +23,7 @@ export default function Home() {
   const [orbState, setOrbState] = useState<OrbState>("idle");
   const [response, setResponse] = useState<VoiceResponse | null>(null);
   const [demoMode, setDemoMode] = useState(true);
+  const [pendingUdhaar, setPendingUdhaar] = useState<PendingUdhaar | null>(null);
 
   const {
     isListening,
@@ -62,6 +63,39 @@ export default function Home() {
         const result = await api.voice(trimmedText, lang, controller.signal);
         if (requestId !== requestIdRef.current) return;
 
+        // Handle confirmation responses when we have pending udhaar
+        if (pendingUdhaar && (result.responseType === 'confirm_yes' || result.responseType === 'confirm_no')) {
+          if (result.responseType === 'confirm_yes') {
+            // User confirmed - proceed with udhaar
+            const confirmResult = await api.confirmUdhaar(
+              pendingUdhaar.customerId,
+              pendingUdhaar.amount,
+              pendingUdhaar.dueDays,
+              lang
+            );
+            setResponse(confirmResult);
+            speak(confirmResult.responseText, lang);
+          } else {
+            // User cancelled
+            setResponse(result);
+            speak(result.responseText, lang);
+          }
+          setPendingUdhaar(null);
+          return;
+        }
+
+        // Check if this is a credit score warning for udhaar
+        if (result.responseType === 'credit_score' && result.responseData?.warning === true) {
+          // Store pending udhaar for confirmation
+          setPendingUdhaar({
+            customerId: result.responseData.customerId as number,
+            customerName: result.responseData.customer as string,
+            amount: result.responseData.amount as number,
+            dueDays: (result.responseData.dueDays as number) ?? 7,
+          });
+          setOrbState("awaiting_confirmation");
+        }
+
         setResponse(result);
         speak(result.responseText, lang);
       } catch (err) {
@@ -72,15 +106,17 @@ export default function Home() {
         isProcessingRef.current = false;
       }
     },
-    [lang, speak, stop]
+    [lang, speak, stop, pendingUdhaar]
   );
 
   useEffect(() => {
-    if (!isSpeaking && orbState === "responding") {
-      const t = setTimeout(() => setOrbState("idle"), 400);
+    if (!isSpeaking && (orbState === "responding" || orbState === "awaiting_confirmation")) {
+      // If awaiting confirmation, go back to idle so user can respond
+      const targetState = pendingUdhaar ? "idle" : "idle";
+      const t = setTimeout(() => setOrbState(targetState), 400);
       return () => clearTimeout(t);
     }
-  }, [isSpeaking, orbState]);
+  }, [isSpeaking, orbState, pendingUdhaar]);
 
   useEffect(() => {
     if (!isListening && transcript && transcript.trim()) {

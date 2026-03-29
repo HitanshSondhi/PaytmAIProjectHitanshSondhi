@@ -73,10 +73,13 @@ export const api = {
   udhaar: () => get<{ ledger: UdhaarEntry[] }>('/api/udhaar'),
   addUdhaar: (customerId: number, amount: number, dueDays: number) =>
     post('/api/udhaar', { customerId, amount, dueDays }),
+  confirmUdhaar: (customerId: number, amount: number, dueDays: number, lang: string) =>
+    post<VoiceResponse & { success: boolean }>('/api/udhaar/confirm', { customerId, amount, dueDays, lang }),
   markPaid: (id: number) => post(`/api/udhaar/${id}/paid`, {}),
 
   // Customers
-  customers: () => get<{ customers: Customer[] }>('/api/customers'),
+  customers: (sort?: 'name' | 'recent' | 'credit_score' | 'activity') => 
+    get<{ customers: Customer[] }>(`/api/customers${sort ? `?sort=${sort}` : ''}`),
   addCustomer: (name: string, phone: string, whatsappConsent: boolean) =>
     post('/api/customers', { name, phone, whatsappConsent }),
   updateConsent: (id: number, consent: boolean) =>

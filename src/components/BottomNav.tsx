@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 export function BottomNav() {
   const location = useLocation();
-  const isVoice = location.pathname === "/";
+  const isVoice = location.pathname === "/app";
   const isDashboard = location.pathname === "/dashboard";
 
   return (
@@ -19,7 +19,7 @@ export function BottomNav() {
         }}
       >
         {/* Voice Tab */}
-        <Link to="/" className="relative flex flex-col items-center gap-1">
+        <Link to="/app" className="relative flex flex-col items-center gap-1">
           <motion.div
             className="flex flex-col items-center gap-1 px-6 py-2"
             whileHover={{ scale: 1.05 }}

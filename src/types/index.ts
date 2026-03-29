@@ -1,9 +1,16 @@
-export type OrbState = 'idle' | 'listening' | 'responding';
+export type OrbState = 'idle' | 'listening' | 'responding' | 'awaiting_confirmation';
 export type Lang = 'hi-IN' | 'ta-IN' | 'te-IN' | 'en-IN';
 export type ScoreCategory = 'Good' | 'Average' | 'Risky';
 export type UdhaarStatus = 'PENDING' | 'PAID' | 'OVERDUE';
 export type PaymentMethod = 'upi' | 'cash' | 'card';
 export type ToastType = 'success' | 'error' | 'info';
+
+export interface PendingUdhaar {
+  customerId: number;
+  customerName: string;
+  amount: number;
+  dueDays: number;
+}
 
 export interface VoiceResponse {
   intent: string;
@@ -19,6 +26,8 @@ export interface Customer {
   name: string;
   credit_score: number;
   whatsapp_consent: boolean;
+  created_at?: string;
+  last_activity_at?: string;
 }
 
 export interface UdhaarEntry {

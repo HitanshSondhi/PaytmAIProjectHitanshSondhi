@@ -200,6 +200,9 @@ export function ResponseCard({ response }: ResponseCardProps) {
         const customer = responseData.customer as string | undefined;
         const totalDue = responseData.totalDue as number | undefined;
         const pendingCount = responseData.pendingCount as number | undefined;
+        const pendingAmount = responseData.pendingAmount as number | undefined;
+        const overdueCount = responseData.overdueCount as number | undefined;
+        const overdueAmount = responseData.overdueAmount as number | undefined;
         const score = responseData.score as number | undefined;
         const category = score !== undefined
           ? score >= 85 ? "Good" : score >= 60 ? "Average" : "Risky"
@@ -245,6 +248,27 @@ export function ResponseCard({ response }: ResponseCardProps) {
                 </div>
               )}
             </div>
+            {/* Breakdown of pending vs overdue */}
+            {(pendingAmount !== undefined || overdueAmount !== undefined) && (
+              <div className="flex gap-3 mt-2">
+                {pendingAmount !== undefined && pendingAmount > 0 && (
+                  <div className="bg-white/5 rounded-lg px-3 py-2 flex-1">
+                    <div className="text-white/50 text-xs">Pending</div>
+                    <div className="text-amber-300 font-medium">
+                      ₹{pendingAmount.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                )}
+                {overdueAmount !== undefined && overdueAmount > 0 && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex-1">
+                    <div className="text-red-400/70 text-xs">Overdue ({overdueCount || 0})</div>
+                    <div className="text-red-400 font-medium">
+                      ₹{overdueAmount.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {score !== undefined && score < 60 && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-amber-300 text-xs">
                 ⚠️ Low credit score - consider follow-up

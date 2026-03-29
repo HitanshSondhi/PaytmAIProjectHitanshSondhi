@@ -16,6 +16,7 @@ const DEMO_COMMANDS = [
   { label: "Rahul ₹5K", transcript: "rahul ke khata mein 5000 daal do" },
   { label: "Due List", transcript: "kal ke due payments" },
   { label: "Score", transcript: "Rahul ka credit score batao" },
+  { label: "Total Due", transcript: "Rahul ka total due kitna hai" },
 ];
 
 export default function Home() {

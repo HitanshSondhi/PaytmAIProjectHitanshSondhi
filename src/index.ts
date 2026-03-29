@@ -14,32 +14,39 @@ import voiceRouter from "./routes/voice";
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
-const frontendUrl = (process.env.FRONTEND_URL ?? '').trim();
 const frontendUrls = (process.env.FRONTEND_URLS ?? '')
   .split(',')
   .map((url) => url.trim())
-  .filter(Boolean);
+  .filter((url) => url.startsWith('https://'));
 
-const allowedOrigins = [
-  frontendUrl || 'http://localhost:5173',
-  ...frontendUrls,
-  'https://paytm-ai-project-hitansh-sondhi.vercel.app',
-  /https:\/\/paytm-ai-project-hitansh-sondhi.*\.vercel\.app$/,
-];
-
-app.use(cors({
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, cron jobs)
-    if (!origin) return callback(null, true);
-    const allowed = allowedOrigins.some((o) =>
-      typeof o === 'string' ? o === origin : o.test(origin)
-    );
-    if (allowed) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const isVercelDomain = origin.includes('vercel.app');
+    const isAllowedConfiguredOrigin = frontendUrls.includes(origin);
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+
+    if (isVercelDomain || isAllowedConfiguredOrigin || isLocalhost) {
+      // Return the exact origin (required when credentials: true)
+      callback(null, origin);
+      return;
+    }
+
+    console.error('[CORS Blocked]', { origin });
     callback(new Error(`CORS blocked: ${origin}`));
   },
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-cron-secret'],
-}));
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 

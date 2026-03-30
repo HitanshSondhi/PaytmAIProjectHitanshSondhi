@@ -3,6 +3,7 @@
 > **Voice-first udhaar (credit) management for Indian merchants**
 
 🌐 **Live Demo Hosted URL**: [https://paytm-ai-project-hitansh-sondhi.vercel.app/](https://paytm-ai-project-hitansh-sondhi.vercel.app/)
+   **Disclaimer**: server will take 60 seconds - 120 seconds to get reload after prolonged inactivity.
 
 Voice Ledger is a modern, voice-powered ledger application designed for Indian merchants. Track your business books (Udhaar/Credit, Transactions, Collections) completely hands-free using natural language voice commands in Hindi, English, or Hinglish.
 

@@ -1,71 +1,48 @@
 import type { Customer, DashboardStats, ScoreData, TransactionResult, UdhaarEntry, VoiceResponse } from "../types";
 
-// In development with Vite proxy, use relative URLs (no base)
-// In production, prefer VITE_API_URL from environment, fallback to deployed Render API.
-const DEFAULT_PROD_API_URL = 'https://paytmaiprojecthitanshsondhi.onrender.com';
-const envApiUrl = (import.meta.env.VITE_API_URL || '').trim();
-const resolvedBaseUrl = import.meta.env.DEV ? '' : (envApiUrl || DEFAULT_PROD_API_URL);
-const BASE = resolvedBaseUrl.replace(/\/$/, '');
+// Vercel production builds do not read local .env files from your machine.
+// Set VITE_API_URL in the Vercel project dashboard Environment Variables.
+const API_BASE = (import.meta.env.VITE_API_URL || 'https://paytmaiprojecthitanshsondhi.onrender.com').replace(/\/$/, '');
 
-if (!import.meta.env.DEV && !envApiUrl) {
-  console.warn(`VITE_API_URL is not set. Falling back to ${DEFAULT_PROD_API_URL}`);
-}
+type HttpMethod = 'GET' | 'POST' | 'PATCH';
 
-async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+async function request<T>(method: HttpMethod, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const url = `${API_BASE}${path}`;
   try {
-    const res = await fetch(`${BASE}${path}`, {
-      method: 'POST',
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      credentials: 'include',
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });
+
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`API Error [${path}]:`, res.status, errorText);
+      console.error('[API Error]', { method, url, status: res.status, errorText });
       throw new Error(`${path} failed: ${res.status} - ${errorText}`);
     }
+
     return res.json() as Promise<T>;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw error; // Re-throw abort errors
+      throw error;
     }
-    console.error(`Network Error [${path}]:`, error);
-    throw new Error(`Failed to connect to ${path}. Is the backend running?`);
+    console.error('[API Network Error]', { method, url, error });
+    throw new Error(`Failed to connect to ${path}.`);
   }
+}
+
+async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>('POST', path, body, signal);
 }
 
 async function get<T>(path: string): Promise<T> {
-  try {
-    const res = await fetch(`${BASE}${path}`);
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`API Error [${path}]:`, res.status, errorText);
-      throw new Error(`${path} failed: ${res.status} - ${errorText}`);
-    }
-    return res.json() as Promise<T>;
-  } catch (error) {
-    console.error(`Network Error [${path}]:`, error);
-    throw new Error(`Failed to connect to ${path}. Is the backend running?`);
-  }
+  return request<T>('GET', path);
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
-  try {
-    const res = await fetch(`${BASE}${path}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`API Error [${path}]:`, res.status, errorText);
-      throw new Error(`${path} failed: ${res.status} - ${errorText}`);
-    }
-    return res.json() as Promise<T>;
-  } catch (error) {
-    console.error(`Network Error [${path}]:`, error);
-    throw new Error(`Failed to connect to ${path}. Is the backend running?`);
-  }
+  return request<T>('PATCH', path, body);
 }
 
 export const api = {

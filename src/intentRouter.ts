@@ -1,5 +1,5 @@
 import * as Q from "./queries";
-import { KEYS, getCache, setCache, invalidateCache } from "./cache";
+import { KEYS, getCache, invalidateCache, setCache } from "./cache";
 import { Intent, NLPResult } from "./nlp";
 import { getScoreCategory } from "./scoringEngine";
 

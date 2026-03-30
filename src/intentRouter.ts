@@ -26,6 +26,7 @@ const RESPONSES = {
     dueList: (count: number, names: string) => `${count} payments due hain: ${names}.`,
     customerDue: (name: string, totalDue: number, pendingCount: number, score: number, category: string) => `${name} ka total due ₹${totalDue.toFixed(0)} hai. ${pendingCount} pending entries. Credit score ${score} — ${category}.`,
     customerNoDue: (name: string) => `${name} ka koi pending due nahi hai.`,
+    totalPending: (total: number, pendingCount: number) => `Total pending udhaar ₹${total.toFixed(0)} hai. ${pendingCount} pending entries hain.`,
     scoreQuery: () => 'Kis customer ka score chahiye?',
     creditScore: (name: string, score: number, category: string) => `${name} ka credit score ${score} hai — ${category}.`,
     allDuesCleared: (name: string, count: number, total: number) => `${name} ke ${count} pending dues clear ho gaye. Total ₹${total.toFixed(0)} maaf kiya gaya.`,
@@ -52,6 +53,7 @@ const RESPONSES = {
     dueList: (count: number, names: string) => `${count} payments due: ${names}.`,
     customerDue: (name: string, totalDue: number, pendingCount: number, score: number, category: string) => `${name}'s total due is ₹${totalDue.toFixed(0)}. ${pendingCount} pending entries. Credit score ${score} — ${category}.`,
     customerNoDue: (name: string) => `${name} has no pending dues.`,
+    totalPending: (total: number, pendingCount: number) => `Total pending udhaar is ₹${total.toFixed(0)} across ${pendingCount} pending entries.`,
     scoreQuery: () => 'Which customer\'s score do you need?',
     creditScore: (name: string, score: number, category: string) => `${name}'s credit score is ${score} — ${category}.`,
     allDuesCleared: (name: string, count: number, total: number) => `Cleared ${count} pending dues for ${name}. Total ₹${total.toFixed(0)} settled.`,
@@ -227,6 +229,16 @@ export async function routeIntent(
         responseType: 'customer_due',
         responseData: { customer: customer.name, totalDue: dueData.totalDue, pendingCount: dueData.pendingCount, score: scoreData.score, category: scoreData.category },
         orbState: scoreData.score >= 60 ? 'success' : 'warning',
+      };
+    }
+
+    case 'TOTAL_PENDING': {
+      const data = await Q.getTotalPendingUdhaar(merchantId);
+      return {
+        responseText: r.totalPending(data.totalPending, data.pendingCount),
+        responseType: 'pending_summary',
+        responseData: data,
+        orbState: 'success',
       };
     }
 

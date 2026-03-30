@@ -5,6 +5,7 @@ const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 export type Intent =
   | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'UDHAAR_ADD'
   | 'DUE_LIST' | 'CREDIT_SCORE' | 'CUSTOMER_DUE' | 'CLEAR_ALL_DUES' | 'CLEAR_SINGLE_DUE'
+  | 'TOTAL_PENDING'
   | 'CONFIRM_YES' | 'CONFIRM_NO' | 'UNKNOWN';
 
 export interface NLPResult {
@@ -24,10 +25,11 @@ Extract intent and entities from Hindi/English/Hinglish transcripts.
 Return ONLY valid JSON. No markdown. No explanation.
 
 INTENTS:
-GET_COLLECTION   → "collection","kitna aaya","total","sale","bikri"
-CUSTOMER_PAYMENT → "[name] ka payment","[name] ne kitna diya"
+GET_COLLECTION   → "overall collection","aaj ka total collection","store collection","sale","bikri"
+CUSTOMER_PAYMENT → "[name] ka payment","[name] ne kitna diya","[name] ka collection","collection of [name]","payment from [name]"
 UDHAAR_ADD       → "udhaar add","credit add","add karo","add kardo","account main","khata mein","daal do","likho","[name] ko [amount]"
 CUSTOMER_DUE     → "[name] ka due","[name] ka total due","[name] kitna dena hai","[name] pe kitna baaki","[name] ka udhaar kitna"
+TOTAL_PENDING    → "total udhaar pending","kitna udhaar pending","total pending udhar","overall due","pending amount"
 CLEAR_ALL_DUES   → "clear all dues","saare dues clear","[name] ka sara udhaar clear","[name] ke saare dues maaf","[name] ka hisab saaf","[name] ka account clear","[name] ke saare payment clear","settle [name]","[name] ka poora hisab clear"
 CLEAR_SINGLE_DUE → "[name] ka [date] wala udhaar clear","[name] ka [date] ka due clear","remove [name] [date] entry","[name] ki [date] wali entry hatao","[name] ka ek udhaar clear"
 DUE_LIST         → "aaj ke due","kal kaun","payment aana hai","due list"
@@ -52,6 +54,8 @@ EXAMPLES:
 "aaj ka collection batao" → {"intent":"GET_COLLECTION","entities":{"period":"today"}}
 "rahul ka credit score" → {"intent":"CREDIT_SCORE","entities":{"customerName":"Rahul"}}
 "aaj ke due payments" → {"intent":"DUE_LIST","entities":{"date":"today"}}
+"what is total udhar pending" → {"intent":"TOTAL_PENDING","entities":{}}
+"total pending udhaar kitna hai" → {"intent":"TOTAL_PENDING","entities":{}}
 "clear all dues of ramesh" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Ramesh"}}
 "ramesh ka sara udhaar clear karo" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Ramesh"}}
 "anita patel ke saare dues maaf karo" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Anita Patel"}}
@@ -63,6 +67,8 @@ EXAMPLES:
 
 IMPORTANT: 
 - If user asks about a specific customer's due/pending amount, use CUSTOMER_DUE
+- If user asks overall pending udhaar without a customer name, use TOTAL_PENDING
+- If user asks collection/payment for a specific customer, use CUSTOMER_PAYMENT (NOT GET_COLLECTION)
 - If user asks about today's/tomorrow's due list (without customer name), use DUE_LIST
 - If user wants to clear/settle/maaf ALL dues of a customer, use CLEAR_ALL_DUES
 - If user wants to clear a SPECIFIC date's udhaar entry, use CLEAR_SINGLE_DUE
@@ -72,9 +78,54 @@ IMPORTANT:
 
 OUTPUT FORMAT: {"intent":"INTENT_NAME","entities":{"customerName":"Name","amount":1234}}`;
 
+function normalizeSpaces(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function isInvalidNameCandidate(value: string): boolean {
+  const v = normalizeSpaces(value.toLowerCase());
+  const stopWords = new Set([
+    'aaj', 'kal', 'today', 'tomorrow', 'week', 'hafte', 'is hafte',
+    'total', 'overall', 'collection', 'payment', 'sale', 'bikri', 'store',
+  ]);
+  return !v || stopWords.has(v);
+}
+
+function extractCustomerNameForCollection(transcript: string): string | undefined {
+  const text = normalizeSpaces(transcript.toLowerCase());
+
+  const byPossessive = text.match(
+    /([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})\s+(?:ka|ke|ki)\s+(?:collection|payment|jama|paid|diya)/i
+  );
+  const byOfFrom = text.match(
+    /(?:collection|payment|paid|diya|jama)\s+(?:of|from)\s+([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})/i
+  );
+
+  const candidate = byPossessive?.[1] ?? byOfFrom?.[1];
+  if (!candidate) return undefined;
+  const cleaned = normalizeSpaces(candidate);
+  if (isInvalidNameCandidate(cleaned)) return undefined;
+  return cleaned;
+}
+
 export async function extractIntent(transcript: string): Promise<NLPResult> {
   try {
     console.log('[NLP] Processing transcript:', transcript);
+
+    // Deterministic guardrail: don't let "total pending udhaar" fall back to collection.
+    const isPendingQuery = /(pending|baaki|due)\b/.test(transcript) && /(udha?r|udhaar|credit)/.test(transcript);
+    const isCollectionQuery = /(collection|sale|bikri|kitna aaya)/.test(transcript);
+    if (isPendingQuery && !isCollectionQuery) {
+      return { intent: 'TOTAL_PENDING', entities: {} };
+    }
+
+    // Deterministic guardrail: customer-specific collection should not map to overall collection.
+    const customerNameFromCollection = extractCustomerNameForCollection(transcript);
+    const looksLikeCustomerCollection = /(collection|payment|jama|paid|diya)/.test(transcript);
+    if (looksLikeCustomerCollection && customerNameFromCollection) {
+      return { intent: 'CUSTOMER_PAYMENT', entities: { customerName: customerNameFromCollection } };
+    }
+
     const completion = await client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [

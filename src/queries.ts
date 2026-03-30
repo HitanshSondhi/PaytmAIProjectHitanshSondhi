@@ -86,6 +86,19 @@ export async function getCustomerTotalDue(merchantId: number, customerId: number
   };
 }
 
+export async function getTotalPendingUdhaar(merchantId: number) {
+  const res = await query(
+    `SELECT COALESCE(SUM(amount), 0) AS total_pending, COUNT(*) AS pending_count
+     FROM udhaar_ledger
+     WHERE merchant_id=$1 AND status='PENDING'`,
+    [merchantId]
+  );
+  return {
+    totalPending: parseFloat(res.rows[0].total_pending),
+    pendingCount: parseInt(res.rows[0].pending_count),
+  };
+}
+
 export async function getAllUdhaar(merchantId: number) {
   const res = await query(
     `SELECT u.id, u.amount, u.due_date, u.status, u.reminder_sent_at,

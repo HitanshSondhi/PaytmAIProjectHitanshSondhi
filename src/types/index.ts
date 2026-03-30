@@ -1,6 +1,7 @@
 export type Intent =
   | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'UDHAAR_ADD'
-  | 'DUE_LIST' | 'CREDIT_SCORE' | 'UNKNOWN';
+  | 'DUE_LIST' | 'CREDIT_SCORE' | 'CUSTOMER_DUE' | 'CLEAR_ALL_DUES' | 'CLEAR_SINGLE_DUE'
+  | 'TOTAL_PENDING' | 'CONFIRM_YES' | 'CONFIRM_NO' | 'UNKNOWN';
 
 export interface NLPResult {
   intent: Intent;
@@ -10,6 +11,7 @@ export interface NLPResult {
     dueDays?: number;
     date?: string;
     period?: 'today' | 'week';
+    clearDate?: string;
   };
 }
 

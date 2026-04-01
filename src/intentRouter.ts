@@ -75,6 +75,17 @@ function getResponses(lang: string) {
   return RESPONSES[key];
 }
 
+function getIndiaDate(offsetDays: number = 0): string {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 export async function routeIntent(
   intent: Intent,
   entities: NLPResult['entities'],
@@ -83,8 +94,8 @@ export async function routeIntent(
 ): Promise<RouteResult> {
 
   const r = getResponses(lang);
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const today = getIndiaDate(0);
+  const tomorrow = getIndiaDate(1);
 
   switch (intent) {
 

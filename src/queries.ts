@@ -117,7 +117,7 @@ export async function addUdhaar(
 ) {
   const res = await query(
     `INSERT INTO udhaar_ledger(merchant_id,customer_id,amount,due_date)
-     VALUES($1,$2,$3,CURRENT_DATE + $4 * INTERVAL '1 day')
+     VALUES($1,$2,$3,(NOW() AT TIME ZONE 'Asia/Kolkata')::date + $4 * INTERVAL '1 day')
      RETURNING id, due_date`,
     [merchantId, customerId, amount, dueDays]
   );
@@ -168,6 +168,44 @@ export async function addScoreEvent(
      WHERE id=$2`,
     [delta, customerId]
   );
+}
+
+export interface OverduePenaltyCandidate {
+  customerId: number;
+  maxOverdueDays: number;
+}
+
+export async function getOverduePenaltyCandidates(merchantId: number): Promise<OverduePenaltyCandidate[]> {
+  const res = await query(
+    `SELECT customer_id, MAX(CURRENT_DATE - due_date) AS max_overdue_days
+     FROM udhaar_ledger
+     WHERE merchant_id=$1
+     AND status='PENDING'
+     AND due_date < CURRENT_DATE
+     GROUP BY customer_id`,
+    [merchantId]
+  );
+
+  return res.rows.map((row) => ({
+    customerId: row.customer_id,
+    maxOverdueDays: parseInt(row.max_overdue_days),
+  }));
+}
+
+export async function hasScoreEventForTagToday(
+  customerId: number,
+  tag: string
+): Promise<boolean> {
+  const res = await query(
+    `SELECT 1
+     FROM score_events
+     WHERE customer_id=$1
+     AND note LIKE $2
+     AND created_at::date = CURRENT_DATE
+     LIMIT 1`,
+    [customerId, `${tag}%`]
+  );
+  return res.rows.length > 0;
 }
 
 export async function getAllCustomers(merchantId: number, sortBy: string = 'name') {

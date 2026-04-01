@@ -6,7 +6,7 @@ const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 // ElevenLabs voice IDs - using clearer, more natural voices for better intelligibility
 // These voices are optimized for multilingual content and Indian languages
 const VOICE_IDS = {
-  'hi-IN': 'EXAVITQu4vr4xnSDxMaL', // Bella - clear female voice, excellent for Hindi
+  'hi-IN': 'zT03pEAEi0VHKciJODfn', // Raju - Hindi voice
   'en-IN': '21m00Tcm4TlvDq8ikWAM', // Rachel - professional, clear English voice
   'ta-IN': 'EXAVITQu4vr4xnSDxMaL', // Bella - works well with Tamil
   'te-IN': 'EXAVITQu4vr4xnSDxMaL', // Bella - works well with Telugu

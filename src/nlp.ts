@@ -5,7 +5,7 @@ const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 export type Intent =
   | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'UDHAAR_ADD'
   | 'DUE_LIST' | 'CREDIT_SCORE' | 'CUSTOMER_DUE' | 'CLEAR_ALL_DUES' | 'CLEAR_SINGLE_DUE'
-  | 'TOTAL_PENDING'
+  | 'TOTAL_PENDING' | 'TOTAL_OVERDUE'
   | 'CONFIRM_YES' | 'CONFIRM_NO' | 'UNKNOWN';
 
 export interface NLPResult {
@@ -30,6 +30,7 @@ CUSTOMER_PAYMENT → "[name] ka payment","[name] ne kitna diya","[name] ka colle
 UDHAAR_ADD       → "udhaar add","credit add","add karo","add kardo","account main","khata mein","daal do","likho","[name] ko [amount]"
 CUSTOMER_DUE     → "[name] ka due","[name] ka total due","[name] kitna dena hai","[name] pe kitna baaki","[name] ka udhaar kitna"
 TOTAL_PENDING    → "total udhaar pending","kitna udhaar pending","total pending udhar","overall due","pending amount"
+TOTAL_OVERDUE    → "total overdue","kitna overdue","overdue kitna","late payments","baaki overdue","overdue amount","overdue total"
 CLEAR_ALL_DUES   → "clear all dues","saare dues clear","[name] ka sara udhaar clear","[name] ke saare dues maaf","[name] ka hisab saaf","[name] ka account clear","[name] ke saare payment clear","settle [name]","[name] ka poora hisab clear"
 CLEAR_SINGLE_DUE → "[name] ka [date] wala udhaar clear","[name] ka [date] ka due clear","remove [name] [date] entry","[name] ki [date] wali entry hatao","[name] ka ek udhaar clear"
 DUE_LIST         → "aaj ke due","kal kaun","payment aana hai","due list"
@@ -56,6 +57,10 @@ EXAMPLES:
 "aaj ke due payments" → {"intent":"DUE_LIST","entities":{"date":"today"}}
 "what is total udhar pending" → {"intent":"TOTAL_PENDING","entities":{}}
 "total pending udhaar kitna hai" → {"intent":"TOTAL_PENDING","entities":{}}
+"total overdue kitna hai" → {"intent":"TOTAL_OVERDUE","entities":{}}
+"kitna overdue hai" → {"intent":"TOTAL_OVERDUE","entities":{}}
+"late payments kitne hain" → {"intent":"TOTAL_OVERDUE","entities":{}}
+"overdue amount batao" → {"intent":"TOTAL_OVERDUE","entities":{}}
 "clear all dues of ramesh" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Ramesh"}}
 "ramesh ka sara udhaar clear karo" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Ramesh"}}
 "anita patel ke saare dues maaf karo" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Anita Patel"}}
@@ -68,6 +73,7 @@ EXAMPLES:
 IMPORTANT: 
 - If user asks about a specific customer's due/pending amount, use CUSTOMER_DUE
 - If user asks overall pending udhaar without a customer name, use TOTAL_PENDING
+- If user asks about overdue/late payments (past due date), use TOTAL_OVERDUE
 - If user asks collection/payment for a specific customer, use CUSTOMER_PAYMENT (NOT GET_COLLECTION)
 - If user asks about today's/tomorrow's due list (without customer name), use DUE_LIST
 - If user wants to clear/settle/maaf ALL dues of a customer, use CLEAR_ALL_DUES

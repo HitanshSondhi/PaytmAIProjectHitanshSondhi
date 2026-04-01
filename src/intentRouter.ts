@@ -27,6 +27,8 @@ const RESPONSES = {
     customerDue: (name: string, totalDue: number, pendingCount: number, score: number, category: string) => `${name} ka total due ₹${totalDue.toFixed(0)} hai. ${pendingCount} pending entries. Credit score ${score} — ${category}.`,
     customerNoDue: (name: string) => `${name} ka koi pending due nahi hai.`,
     totalPending: (total: number, pendingCount: number) => `Total pending udhaar ₹${total.toFixed(0)} hai. ${pendingCount} pending entries hain.`,
+    totalOverdue: (total: number, overdueCount: number) => `Total overdue ₹${total.toFixed(0)} hai. ${overdueCount} entries late hain.`,
+    noOverdue: () => 'Koi overdue nahi hai. Sab time pe hai!',
     scoreQuery: () => 'Kis customer ka score chahiye?',
     creditScore: (name: string, score: number, category: string) => `${name} ka credit score ${score} hai — ${category}.`,
     allDuesCleared: (name: string, count: number, total: number) => `${name} ke ${count} pending dues clear ho gaye. Total ₹${total.toFixed(0)} maaf kiya gaya.`,
@@ -54,6 +56,8 @@ const RESPONSES = {
     customerDue: (name: string, totalDue: number, pendingCount: number, score: number, category: string) => `${name}'s total due is ₹${totalDue.toFixed(0)}. ${pendingCount} pending entries. Credit score ${score} — ${category}.`,
     customerNoDue: (name: string) => `${name} has no pending dues.`,
     totalPending: (total: number, pendingCount: number) => `Total pending udhaar is ₹${total.toFixed(0)} across ${pendingCount} pending entries.`,
+    totalOverdue: (total: number, overdueCount: number) => `Total overdue is ₹${total.toFixed(0)}. ${overdueCount} entries are past due.`,
+    noOverdue: () => 'No overdue payments. All payments are on time!',
     scoreQuery: () => 'Which customer\'s score do you need?',
     creditScore: (name: string, score: number, category: string) => `${name}'s credit score is ${score} — ${category}.`,
     allDuesCleared: (name: string, count: number, total: number) => `Cleared ${count} pending dues for ${name}. Total ₹${total.toFixed(0)} settled.`,
@@ -250,6 +254,24 @@ export async function routeIntent(
         responseType: 'pending_summary',
         responseData: data,
         orbState: 'success',
+      };
+    }
+
+    case 'TOTAL_OVERDUE': {
+      const data = await Q.getDashboardStats(merchantId);
+      if (data.overdueCount === 0) {
+        return {
+          responseText: r.noOverdue(),
+          responseType: 'overdue_summary',
+          responseData: { overdueTotal: 0, overdueCount: 0 },
+          orbState: 'success',
+        };
+      }
+      return {
+        responseText: r.totalOverdue(data.overdueTotal, data.overdueCount),
+        responseType: 'overdue_summary',
+        responseData: { overdueTotal: data.overdueTotal, overdueCount: data.overdueCount },
+        orbState: 'warning',
       };
     }
 

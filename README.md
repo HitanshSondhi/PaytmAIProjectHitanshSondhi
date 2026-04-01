@@ -28,13 +28,20 @@ A comprehensive reference guide for all **actually implemented** voice commands 
 - "Sale"
 - "Bikri"
 
-"
+**For Weekly Collection:**
+- "What is this week's collection?"
+- "Weekly collection"
+- "This week's sale"
+- "Is hafte ka collection"
 
 **Example Response (Today):**
 ```
 Aaj ka total collection ₹12,500 raha. 15 transactions hue hain.
 ```
 
+**Example Response (Week):**
+```
+Is hafte ka total collection ₹87,500 raha.
 ```
 
 ---

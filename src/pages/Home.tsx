@@ -19,6 +19,8 @@ const DEMO_COMMANDS = [
   { label: "Total Due", transcript: "Rahul ka total due kitna hai" },
 ];
 
+const CONFIRMATION_TIMEOUT_MS = 20000;
+
 export default function Home() {
   const [lang, setLang] = useState<Lang>("hi-IN");
   const [orbState, setOrbState] = useState<OrbState>("idle");
@@ -30,6 +32,7 @@ export default function Home() {
     isListening,
     transcript,
     interimTranscript,
+    startListening,
     toggleListening,
   } = useSpeechRecognition(lang);
   const { speak, stop, isSpeaking } = useElevenLabsTTS();
@@ -38,6 +41,7 @@ export default function Home() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastProcessedRef = useRef<string>("");
   const isProcessingRef = useRef<boolean>(false);
+  const confirmationExpiresAtRef = useRef<number | null>(null);
 
   const handleTranscriptComplete = useCallback(
     async (transcriptText: string) => {
@@ -65,7 +69,7 @@ export default function Home() {
         if (requestId !== requestIdRef.current) return;
 
         // Handle confirmation responses when we have pending udhaar
-        if (pendingUdhaar && (result.responseType === 'confirm_yes' || result.responseType === 'confirm_no')) {
+        if (pendingUdhaar) {
           if (result.responseType === 'confirm_yes') {
             // User confirmed - proceed with udhaar
             const confirmResult = await api.confirmUdhaar(
@@ -76,10 +80,27 @@ export default function Home() {
             );
             setResponse(confirmResult);
             speak(confirmResult.responseText, lang);
+            confirmationExpiresAtRef.current = null;
           } else {
-            // User cancelled
-            setResponse(result);
-            speak(result.responseText, lang);
+            if (result.responseType === 'confirm_no') {
+              // User cancelled
+              setResponse(result);
+              speak(result.responseText, lang);
+              confirmationExpiresAtRef.current = null;
+            } else {
+              // Keep confirmation flow active until explicit yes/no.
+              const retryResponse: VoiceResponse = {
+                ...result,
+                responseType: 'confirmation_retry',
+                responseText: lang === 'en-IN'
+                  ? 'Please say yes to continue or no to cancel.'
+                  : 'Please sirf haan ya na boliye. Haan se continue hoga, na se cancel hoga.',
+              };
+              setResponse(retryResponse);
+              speak(retryResponse.responseText, lang);
+              setOrbState("awaiting_confirmation");
+              return;
+            }
           }
           setPendingUdhaar(null);
           return;
@@ -94,6 +115,7 @@ export default function Home() {
             amount: result.responseData.amount as number,
             dueDays: (result.responseData.dueDays as number) ?? 7,
           });
+          confirmationExpiresAtRef.current = Date.now() + CONFIRMATION_TIMEOUT_MS;
           setOrbState("awaiting_confirmation");
         }
 
@@ -111,13 +133,49 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (!isSpeaking && (orbState === "responding" || orbState === "awaiting_confirmation")) {
-      // If awaiting confirmation, go back to idle so user can respond
-      const targetState = pendingUdhaar ? "idle" : "idle";
-      const t = setTimeout(() => setOrbState(targetState), 400);
+    if (!isSpeaking && orbState === "responding") {
+      const t = setTimeout(() => setOrbState(pendingUdhaar ? "awaiting_confirmation" : "idle"), 400);
       return () => clearTimeout(t);
     }
   }, [isSpeaking, orbState, pendingUdhaar]);
+
+  useEffect(() => {
+    if (!pendingUdhaar) return;
+    if (isSpeaking || isListening || isProcessingRef.current) return;
+
+    const expiresAt = confirmationExpiresAtRef.current ?? (Date.now() + CONFIRMATION_TIMEOUT_MS);
+    confirmationExpiresAtRef.current = expiresAt;
+
+    if (Date.now() >= expiresAt) {
+      const timeoutResponse: VoiceResponse = {
+        intent: "CONFIRMATION_TIMEOUT",
+        entities: {},
+        responseType: "confirm_no",
+        responseData: {},
+        orbState: "warning",
+        responseText:
+          lang === "en-IN"
+            ? "No confirmation received, so I cancelled this udhaar request."
+            : "Aapka confirmation nahi mila, isliye ye udhaar request cancel kar di gayi hai.",
+      };
+      setResponse(timeoutResponse);
+      setPendingUdhaar(null);
+      confirmationExpiresAtRef.current = null;
+      setOrbState("responding");
+      speak(timeoutResponse.responseText, lang);
+      return;
+    }
+
+    setOrbState("awaiting_confirmation");
+    const t = window.setTimeout(() => {
+      if (!isListening && !isSpeaking) {
+        setOrbState("listening");
+        startListening();
+      }
+    }, 350);
+
+    return () => window.clearTimeout(t);
+  }, [pendingUdhaar, isSpeaking, isListening, startListening, speak, lang]);
 
   useEffect(() => {
     if (!isListening && transcript && transcript.trim()) {

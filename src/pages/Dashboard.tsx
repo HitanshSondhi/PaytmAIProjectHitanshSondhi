@@ -83,7 +83,7 @@ const ScoreGauge = ({ score, maxScore = 1000, size = "md" }: { score: number, ma
       )}
       {size === "sm" && (
         <span
-          className={`absolute text-[10px] font-bold bottom-[-2px] ${colorClass.replace(
+          className={`absolute text-[10px] font-bold -bottom-0.5 ${colorClass.replace(
             "text-",
             "text-"
           )}`}
@@ -326,7 +326,7 @@ export default function Dashboard() {
       {/* Background Decorative Blobs */}
       <div className="fixed top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/30 rounded-full mix-blend-screen filter blur-[100px] opacity-60 pointer-events-none"></div>
       <div className="fixed top-[20%] right-[-5%] w-80 h-80 bg-purple-600/30 rounded-full mix-blend-screen filter blur-[100px] opacity-50 pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] right-[20%] w-[30rem] h-[30rem] bg-indigo-600/20 rounded-full mix-blend-screen filter blur-[120px] opacity-40 pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] right-[20%] w-120 h-120 bg-indigo-600/20 rounded-full mix-blend-screen filter blur-[120px] opacity-40 pointer-events-none"></div>
       <div className="fixed top-1/2 left-[10%] w-64 h-64 bg-cyan-600/20 rounded-full mix-blend-screen filter blur-[80px] opacity-40 pointer-events-none"></div>
 
       {/* Main Content Container */}
@@ -443,7 +443,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="bg-[#1a1c29]/60 backdrop-blur-xl rounded-2xl border border-white/5 overflow-x-auto">
-            <div className="min-w-[600px]">
+            <div className="min-w-150">
               <div className="grid grid-cols-5 text-xs text-gray-400 font-medium px-6 py-4 border-b border-white/5">
                 <div className="col-span-1">Customer</div>
                 <div className="col-span-1">Amount</div>
@@ -454,7 +454,7 @@ export default function Dashboard() {
               
               <div className="divide-y divide-white/5">
                 {sortedLedger.map((item) => (
-                  <div key={item.id} className="grid grid-cols-5 items-center px-6 py-4 hover:bg-white/[0.02] transition-colors">
+                  <div key={item.id} className="grid grid-cols-5 items-center px-6 py-4 hover:bg-white/2 transition-colors">
                     <div className="col-span-1 font-medium text-sm text-gray-200">{item.customer_name}</div>
                     <div className="col-span-1 text-sm">{formatCurrency(item.amount)}</div>
                     <div className="col-span-1 text-sm text-gray-400">{formatDate(item.due_date)}</div>
@@ -548,7 +548,7 @@ export default function Dashboard() {
               }
 
               return (
-                <div key={customer.id} className="min-w-[280px] flex-shrink-0 bg-[#1a1c29]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col snap-start hover:bg-[#1a1c29]/80 transition-colors cursor-pointer">
+                <div key={customer.id} className="min-w-70 shrink-0 bg-[#1a1c29]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col snap-start hover:bg-[#1a1c29]/80 transition-colors cursor-pointer">
                   <h3 className="text-sm font-medium text-gray-200 mb-4">{customer.name}</h3>
                   <div className="flex justify-between items-end mt-auto">
                     
@@ -613,7 +613,7 @@ export default function Dashboard() {
               }`}
             >
               <div
-                className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${newCustomerConsent ? 'left-[24px]' : 'left-1'}`}
+                className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${newCustomerConsent ? 'left-6' : 'left-1'}`}
               />
             </button>
           </div>
@@ -678,7 +678,7 @@ export default function Dashboard() {
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 placeholder="0"
-                className={`${inputClassName} !pl-10 bg-white/5 border-white/10`}
+                className={`${inputClassName} pl-10! bg-white/5 border-white/10`}
               />
             </div>
           </div>

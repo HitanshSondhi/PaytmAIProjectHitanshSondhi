@@ -1,5 +1,5 @@
 import { query } from "./db";
-import { getScoreCategory } from "./scoringEngine";
+import { getScoreCategory, getScoreDelta } from "./scoringEngine";
 
 // Format date to IST (Indian Standard Time) - date only
 function formatDateIST(date: Date | string): string {
@@ -434,6 +434,33 @@ export async function clearAllCustomerDues(merchantId: number, customerId: numbe
   );
   const clearedCount = res.rowCount ?? 0;
   const totalCleared = res.rows.reduce((sum: number, row: { amount: string }) => sum + parseFloat(row.amount), 0);
+  
+  // Record score events for each cleared due
+  if (clearedCount > 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (const row of res.rows) {
+      const dueDate = new Date(row.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      let eventType: string;
+      if (today < dueDate) {
+        eventType = 'PAID_EARLY';
+      } else if (today.getTime() === dueDate.getTime()) {
+        eventType = 'PAID_ONTIME';
+      } else {
+        const daysLate = Math.floor((today.getTime() - dueDate.getTime()) / 86400000);
+        if (daysLate <= 3) eventType = 'LATE_1_3';
+        else if (daysLate <= 7) eventType = 'LATE_4_7';
+        else eventType = 'LATE_7_PLUS';
+      }
+      
+      const delta = getScoreDelta(eventType);
+      await recordScoreEvent(customerId, eventType, delta, `Cleared ₹${row.amount} due on ${row.due_date}`);
+    }
+  }
+  
   return { clearedCount, totalCleared, entries: res.rows };
 }
 
@@ -447,6 +474,31 @@ export async function clearSingleDue(merchantId: number, customerId: number, due
   );
   const clearedCount = res.rowCount ?? 0;
   const totalCleared = res.rows.reduce((sum: number, row: { amount: string }) => sum + parseFloat(row.amount), 0);
+  
+  // Record score event for cleared due
+  if (clearedCount > 0 && res.rows[0]) {
+    const row = res.rows[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDateObj = new Date(row.due_date);
+    dueDateObj.setHours(0, 0, 0, 0);
+    
+    let eventType: string;
+    if (today < dueDateObj) {
+      eventType = 'PAID_EARLY';
+    } else if (today.getTime() === dueDateObj.getTime()) {
+      eventType = 'PAID_ONTIME';
+    } else {
+      const daysLate = Math.floor((today.getTime() - dueDateObj.getTime()) / 86400000);
+      if (daysLate <= 3) eventType = 'LATE_1_3';
+      else if (daysLate <= 7) eventType = 'LATE_4_7';
+      else eventType = 'LATE_7_PLUS';
+    }
+    
+    const delta = getScoreDelta(eventType);
+    await recordScoreEvent(customerId, eventType, delta, `Cleared ₹${row.amount} due on ${row.due_date}`);
+  }
+  
   return { clearedCount, totalCleared, entry: res.rows[0] ?? null };
 }
 

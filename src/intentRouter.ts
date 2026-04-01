@@ -293,8 +293,9 @@ export async function routeIntent(
         };
       }
       
-      // Invalidate cache for due list
+      // Invalidate caches for due list and score
       await invalidateCache(KEYS.dueList(merchantId, today));
+      await invalidateCache(KEYS.score(customer.id));
       
       return {
         responseText: r.allDuesCleared(customer.name, result.clearedCount, result.totalCleared),
@@ -340,8 +341,9 @@ export async function routeIntent(
         };
       }
       
-      // Invalidate cache for due list
+      // Invalidate caches for due list and score
       await invalidateCache(KEYS.dueList(merchantId, targetDate));
+      await invalidateCache(KEYS.score(customer.id));
       
       return {
         responseText: r.singleDueCleared(customer.name, result.totalCleared, targetDate),

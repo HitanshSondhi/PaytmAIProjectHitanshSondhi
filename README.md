@@ -5,6 +5,7 @@
 🌐 **Live Demo Hosted URL**: [https://paytm-ai-project-hitansh-sondhi.vercel.app/](https://paytm-ai-project-hitansh-sondhi.vercel.app/)
 
    **Disclaimer**: server will take 60 seconds - 120 seconds to get reload after prolonged inactivity.
+   
    **Disclaimer**: Default date of due of udhaar will be 1 week as it has been aleardy been set for the simplicity it can be dynamically be added in further patches 
 
 Voice Ledger is a modern, voice-powered ledger application designed for Indian merchants. Track your business books (Udhaar/Credit, Transactions, Collections) completely hands-free using natural language voice commands in Hindi, English, or Hinglish.

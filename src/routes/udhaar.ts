@@ -37,14 +37,14 @@ router.post('/confirm', async (req: Request, res: Response) => {
     await invalidateCache(KEYS.todayCollection(1));
     
     const responseText = lang === 'en-IN'
-      ? `Added ₹${amount} udhaar for ${customer.name}. Due date ${result.dueDate}.`
-      : `${customer.name} ka ₹${amount} udhaar add ho gaya. Due date ${result.dueDate}.`;
+      ? `Added ₹${amount} udhaar for ${customer.name} at ${result.createdAt}. Due date ${result.dueDate}.`
+      : `${customer.name} ka ₹${amount} udhaar ${result.createdAt} ko add hua. Due date ${result.dueDate}.`;
     
     res.json({
       success: true,
       responseText,
       responseType: 'udhaar_confirmed',
-      responseData: { customer: customer.name, amount, dueDate: result.dueDate },
+      responseData: { customer: customer.name, amount, dueDate: result.dueDate, createdAt: result.createdAt },
       orbState: 'success',
       ...result
     });

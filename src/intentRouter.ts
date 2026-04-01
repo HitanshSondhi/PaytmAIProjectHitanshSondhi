@@ -21,7 +21,7 @@ const RESPONSES = {
     customerPayment: (name: string, total: number, method: string) => `${name} ne aaj ₹${total.toFixed(0)} diye hain, ${method} se.`,
     udhaarMissingInfo: () => 'Customer ka naam aur amount dono boliye.',
     udhaarWarning: (name: string, score: number) => `Warning: ${name} ka credit score ${score} hai — Risky. Pichla payment late tha. Sure hain udhaar dena chahte hain?`,
-    udhaarAdded: (name: string, amount: number, score: number, category: string, dueDate: string) => `${name} ka ₹${amount} udhaar add ho gaya. Credit score ${score} — ${category}. Due date ${dueDate}.`,
+    udhaarAdded: (name: string, amount: number, score: number, category: string, dueDate: string, createdAt: string) => `${name} ka ₹${amount} udhaar ${createdAt} ko add hua. Credit score ${score} — ${category}. Due date ${dueDate}.`,
     noDue: () => 'Koi payment due nahi hai.',
     dueList: (count: number, names: string) => `${count} payments due hain: ${names}.`,
     customerDue: (name: string, totalDue: number, pendingCount: number, score: number, category: string) => `${name} ka total due ₹${totalDue.toFixed(0)} hai. ${pendingCount} pending entries. Credit score ${score} — ${category}.`,
@@ -48,7 +48,7 @@ const RESPONSES = {
     customerPayment: (name: string, total: number, method: string) => `${name} paid ₹${total.toFixed(0)} today via ${method}.`,
     udhaarMissingInfo: () => 'Please provide both customer name and amount.',
     udhaarWarning: (name: string, score: number) => `Warning: ${name}'s credit score is ${score} — Risky. Previous payment was late. Are you sure you want to add udhaar?`,
-    udhaarAdded: (name: string, amount: number, score: number, category: string, dueDate: string) => `Added ₹${amount} udhaar for ${name}. Credit score ${score} — ${category}. Due date ${dueDate}.`,
+    udhaarAdded: (name: string, amount: number, score: number, category: string, dueDate: string, createdAt: string) => `Added ₹${amount} udhaar for ${name} at ${createdAt}. Credit score ${score} — ${category}. Due date ${dueDate}.`,
     noDue: () => 'No payments due.',
     dueList: (count: number, names: string) => `${count} payments due: ${names}.`,
     customerDue: (name: string, totalDue: number, pendingCount: number, score: number, category: string) => `${name}'s total due is ₹${totalDue.toFixed(0)}. ${pendingCount} pending entries. Credit score ${score} — ${category}.`,
@@ -164,9 +164,9 @@ export async function routeIntent(
       }
       const udhaar = await Q.addUdhaar(merchantId, customer.id, entities.amount, entities.dueDays ?? 7);
       return {
-        responseText: r.udhaarAdded(customer.name, entities.amount, scoreData.score, scoreData.category, udhaar.dueDate),
+        responseText: r.udhaarAdded(customer.name, entities.amount, scoreData.score, scoreData.category, udhaar.dueDate, udhaar.createdAt),
         responseType: 'udhaar_summary',
-        responseData: { customer: customer.name, amount: entities.amount, dueDate: udhaar.dueDate, score: scoreData.score, category: scoreData.category },
+        responseData: { customer: customer.name, amount: entities.amount, dueDate: udhaar.dueDate, createdAt: udhaar.createdAt, score: scoreData.score, category: scoreData.category },
         orbState: 'success',
       };
     }

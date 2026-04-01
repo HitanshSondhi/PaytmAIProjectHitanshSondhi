@@ -1,6 +1,32 @@
 import { query } from "./db";
 import { getScoreCategory } from "./scoringEngine";
 
+// Format date to IST (Indian Standard Time) - date only
+function formatDateIST(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  });
+}
+
+// Format timestamp to IST with time
+function formatDateTimeIST(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  });
+}
+
 export async function getTodayCollection(merchantId: number) {
   const res = await query(
     `SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS txn_count
@@ -118,7 +144,7 @@ export async function addUdhaar(
   const res = await query(
     `INSERT INTO udhaar_ledger(merchant_id,customer_id,amount,due_date)
      VALUES($1,$2,$3,(NOW() AT TIME ZONE 'Asia/Kolkata')::date + $4 * INTERVAL '1 day')
-     RETURNING id, due_date`,
+     RETURNING id, due_date, created_at`,
     [merchantId, customerId, amount, dueDays]
   );
   
@@ -132,7 +158,11 @@ export async function addUdhaar(
     // Column might not exist yet, ignore
   }
   
-  return { id: res.rows[0].id, dueDate: res.rows[0].due_date };
+  return { 
+    id: res.rows[0].id, 
+    dueDate: formatDateIST(res.rows[0].due_date),
+    createdAt: formatDateTimeIST(res.rows[0].created_at)
+  };
 }
 
 export async function getCustomerScore(customerId: number) {

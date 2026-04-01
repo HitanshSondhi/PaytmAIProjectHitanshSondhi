@@ -457,7 +457,7 @@ export async function clearAllCustomerDues(merchantId: number, customerId: numbe
       }
       
       const delta = getScoreDelta(eventType);
-      await recordScoreEvent(customerId, eventType, delta, `Cleared ₹${row.amount} due on ${row.due_date}`);
+      await addScoreEvent(customerId, eventType, delta, `Cleared ₹${row.amount} due on ${row.due_date}`);
     }
   }
   
@@ -496,7 +496,7 @@ export async function clearSingleDue(merchantId: number, customerId: number, due
     }
     
     const delta = getScoreDelta(eventType);
-    await recordScoreEvent(customerId, eventType, delta, `Cleared ₹${row.amount} due on ${row.due_date}`);
+    await addScoreEvent(customerId, eventType, delta, `Cleared ₹${row.amount} due on ${row.due_date}`);
   }
   
   return { clearedCount, totalCleared, entry: res.rows[0] ?? null };

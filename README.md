@@ -500,7 +500,7 @@ type Intent =
 *Voice Ledger - Making credit management effortless for Indian merchants* 🇮🇳
 
 **Version:** 1.0  
-**Last Updated:** April 2026  
+**Last Updated:** March 2026  
 **NLP Engine:** Groq LLaMA 3.3-70B Versatile  
 **Speech Recognition:** Web Speech API
 

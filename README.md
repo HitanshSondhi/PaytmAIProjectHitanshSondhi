@@ -1,4 +1,4 @@
-# 🎙️ Voice Ledger  
+# 🎙️ AI Powered Voice Ledger  
 
 
 > **Voice-first udhaar (credit) management for Indian merchants**

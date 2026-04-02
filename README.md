@@ -1,7 +1,8 @@
 # 🎙️ Voice Ledger  
-#  for detail command list of voice go to the branch 2 Readme.md
+
 
 > **Voice-first udhaar (credit) management for Indian merchants**
+> **for detail command list of voice go to the branch 2 Readme.md**
 
 🌐 **Live Demo Hosted URL**: [https://paytm-ai-project-hitansh-sondhi.vercel.app/](https://paytm-ai-project-hitansh-sondhi.vercel.app/)
 

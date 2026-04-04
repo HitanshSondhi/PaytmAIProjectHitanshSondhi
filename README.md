@@ -7,7 +7,7 @@
 
 🌐 **Live Demo Hosted URL**: [https://paytm-ai-project-hitansh-sondhi.vercel.app/](https://paytm-ai-project-hitansh-sondhi.vercel.app/)
 
-   **Detail Pitch Deck**:[ https://drive.google.com/file/d/1P0K_rnhP2tIwX6ND4IMFQD7yayL35jsY/view?usp=drive_link].(https://drive.google.com/file/d/1P0K_rnhP2tIwX6ND4IMFQD7yayL35jsY/view?usp=drive_link)
+   **Detail Pitch Deck**:https://drive.google.com/file/d/1P0K_rnhP2tIwX6ND4IMFQD7yayL35jsY/view?usp=drive_link
 
    **Disclaimer**: server will take 60 seconds - 120 seconds to get reload after prolonged inactivity.
    

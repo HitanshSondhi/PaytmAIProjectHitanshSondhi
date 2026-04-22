@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowLeft, Clock, Plus, SortAsc, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock, Plus, SortAsc, Trash2, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
@@ -185,6 +185,7 @@ export default function Dashboard() {
   
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
+  const [showDeleteCustomer, setShowDeleteCustomer] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Modals state
@@ -196,6 +197,8 @@ export default function Dashboard() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
 
   const { toast, showToast } = useToast();
   const { speak } = useSarvamTTS();
@@ -298,6 +301,27 @@ export default function Dashboard() {
       fetchData();
     } catch {
       showToast("Failed to record payment", "error");
+    }
+  };
+
+  const openDeleteCustomer = (customer: Customer) => {
+    setCustomerToDelete(customer);
+    setShowDeleteCustomer(true);
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete || isDeletingCustomer) return;
+    setIsDeletingCustomer(true);
+    try {
+      await api.deleteCustomer(customerToDelete.id);
+      showToast(`${customerToDelete.name} removed`, "success");
+      setShowDeleteCustomer(false);
+      setCustomerToDelete(null);
+      fetchData();
+    } catch {
+      showToast("Failed to remove customer", "error");
+    } finally {
+      setIsDeletingCustomer(false);
     }
   };
 
@@ -548,8 +572,18 @@ export default function Dashboard() {
               }
 
               return (
-                <div key={customer.id} className="min-w-70 shrink-0 bg-[#1a1c29]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col snap-start hover:bg-[#1a1c29]/80 transition-colors cursor-pointer">
-                  <h3 className="text-sm font-medium text-gray-200 mb-4">{customer.name}</h3>
+                <div key={customer.id} className="relative min-w-70 shrink-0 bg-[#1a1c29]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 flex flex-col snap-start hover:bg-[#1a1c29]/80 transition-colors">
+                  <button
+                    onClick={() => openDeleteCustomer(customer)}
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-red-300 transition-colors"
+                    aria-label={`Remove ${customer.name}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <h3 className="text-sm font-medium text-gray-200">{customer.name}</h3>
+                  {customer.created_at && (
+                    <div className="text-xs text-gray-500 mb-3">Added {formatDate(customer.created_at)}</div>
+                  )}
                   <div className="flex justify-between items-end mt-auto">
                     
                     {/* Gauge Side */}
@@ -707,6 +741,53 @@ export default function Dashboard() {
           >
             Record ₹{paymentAmount || "0"}
           </button>
+        </div>
+      </Modal>
+
+      {/* Delete Customer Modal */}
+      <Modal
+        isOpen={showDeleteCustomer}
+        onClose={() => {
+          if (isDeletingCustomer) return;
+          setShowDeleteCustomer(false);
+          setCustomerToDelete(null);
+        }}
+        title="Remove Customer"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="flex items-start gap-3 text-sm text-white/70">
+            <AlertTriangle className="text-red-400 mt-0.5" size={18} />
+            <div>
+              <div className="text-white">
+                Remove <span className="font-semibold">{customerToDelete?.name}</span>?
+              </div>
+              <div className="text-white/50 mt-1">
+                This will delete their ledger, transactions, and score history.
+                {customerToDelete?.created_at && (
+                  <> Added on {formatDate(customerToDelete.created_at)}.</>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                if (isDeletingCustomer) return;
+                setShowDeleteCustomer(false);
+                setCustomerToDelete(null);
+              }}
+              className="flex-1 py-3 rounded-xl text-sm font-medium bg-white/5 text-white/70 hover:bg-white/10 border border-white/10 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteCustomer}
+              disabled={isDeletingCustomer}
+              className="flex-1 py-3 rounded-xl text-sm font-medium bg-red-500/80 text-white hover:bg-red-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isDeletingCustomer ? "Removing..." : "Remove"}
+            </button>
+          </div>
         </div>
       </Modal>
 

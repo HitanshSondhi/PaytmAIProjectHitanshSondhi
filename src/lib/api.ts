@@ -4,7 +4,7 @@ import type { Customer, DashboardStats, ScoreData, TransactionResult, UdhaarEntr
 // Set VITE_API_URL in the Vercel project dashboard Environment Variables.
 const API_BASE = (import.meta.env.VITE_API_URL || 'https://paytmaiprojecthitanshsondhi.onrender.com').replace(/\/$/, '');
 
-type HttpMethod = 'GET' | 'POST' | 'PATCH';
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
 async function request<T>(method: HttpMethod, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const url = `${API_BASE}${path}`;
@@ -45,6 +45,10 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
   return request<T>('PATCH', path, body);
 }
 
+async function del<T>(path: string): Promise<T> {
+  return request<T>('DELETE', path);
+}
+
 export const api = {
   // Voice
   voice: (transcript: string, lang: string, signal?: AbortSignal) =>
@@ -68,6 +72,8 @@ export const api = {
     post('/api/customers', { name, phone, whatsappConsent }),
   updateConsent: (id: number, consent: boolean) =>
     patch(`/api/customers/${id}/consent`, { consent }),
+  deleteCustomer: (id: number) =>
+    del<{ success: boolean; customer: { id: number; name: string } }>(`/api/customers/${id}`),
 
   // Transactions
   recordPayment: (customerId: number, amount: number, method: string) =>

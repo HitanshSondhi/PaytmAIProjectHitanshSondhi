@@ -424,11 +424,17 @@ export async function getPendingReminders(merchantId: number) {
   return res.rows;
 }
 
-export async function clearAllCustomerDues(merchantId: number, customerId: number) {
+export async function clearAllCustomerDues(
+  merchantId: number,
+  customerId: number,
+  overdueOnly: boolean = false
+) {
+  const overdueFilter = overdueOnly ? 'AND due_date < CURRENT_DATE' : '';
   const res = await query(
     `UPDATE udhaar_ledger 
      SET status='PAID'
-     WHERE merchant_id=$1 AND customer_id=$2 AND status='PENDING'
+     WHERE merchant_id=$1 AND customer_id=$2 AND status IN ('PENDING','OVERDUE')
+     ${overdueFilter}
      RETURNING id, amount, due_date`,
     [merchantId, customerId]
   );
@@ -451,9 +457,9 @@ export async function clearAllCustomerDues(merchantId: number, customerId: numbe
         eventType = 'PAID_ONTIME';
       } else {
         const daysLate = Math.floor((today.getTime() - dueDate.getTime()) / 86400000);
-        if (daysLate <= 3) eventType = 'LATE_1_3';
-        else if (daysLate <= 7) eventType = 'LATE_4_7';
-        else eventType = 'LATE_7_PLUS';
+        if (daysLate <= 3) eventType = 'PAID_LATE_1_3';
+        else if (daysLate <= 7) eventType = 'PAID_LATE_4_7';
+        else eventType = 'PAID_LATE_7_PLUS';
       }
       
       const delta = getScoreDelta(eventType);
@@ -464,11 +470,18 @@ export async function clearAllCustomerDues(merchantId: number, customerId: numbe
   return { clearedCount, totalCleared, entries: res.rows };
 }
 
-export async function clearSingleDue(merchantId: number, customerId: number, dueDate: string) {
+export async function clearSingleDue(
+  merchantId: number,
+  customerId: number,
+  dueDate: string,
+  overdueOnly: boolean = false
+) {
+  const overdueFilter = overdueOnly ? 'AND due_date < CURRENT_DATE' : '';
   const res = await query(
     `UPDATE udhaar_ledger 
      SET status='PAID'
-     WHERE merchant_id=$1 AND customer_id=$2 AND due_date=$3 AND status='PENDING'
+     WHERE merchant_id=$1 AND customer_id=$2 AND due_date=$3 AND status IN ('PENDING','OVERDUE')
+     ${overdueFilter}
      RETURNING id, amount, due_date`,
     [merchantId, customerId, dueDate]
   );
@@ -490,9 +503,9 @@ export async function clearSingleDue(merchantId: number, customerId: number, due
       eventType = 'PAID_ONTIME';
     } else {
       const daysLate = Math.floor((today.getTime() - dueDateObj.getTime()) / 86400000);
-      if (daysLate <= 3) eventType = 'LATE_1_3';
-      else if (daysLate <= 7) eventType = 'LATE_4_7';
-      else eventType = 'LATE_7_PLUS';
+      if (daysLate <= 3) eventType = 'PAID_LATE_1_3';
+      else if (daysLate <= 7) eventType = 'PAID_LATE_4_7';
+      else eventType = 'PAID_LATE_7_PLUS';
     }
     
     const delta = getScoreDelta(eventType);

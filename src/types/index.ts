@@ -12,6 +12,7 @@ export interface NLPResult {
     date?: string;
     period?: 'today' | 'week';
     clearDate?: string;
+    overdueOnly?: boolean;
   };
 }
 

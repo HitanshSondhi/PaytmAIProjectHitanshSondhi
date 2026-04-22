@@ -17,6 +17,7 @@ export interface NLPResult {
     date?: string;
     period?: 'today' | 'week';
     clearDate?: string;
+    overdueOnly?: boolean;
   };
 }
 
@@ -31,8 +32,8 @@ UDHAAR_ADD       → "udhaar add","credit add","add karo","add kardo","account m
 CUSTOMER_DUE     → "[name] ka due","[name] ka total due","[name] kitna dena hai","[name] pe kitna baaki","[name] ka udhaar kitna"
 TOTAL_PENDING    → "total udhaar pending","kitna udhaar pending","total pending udhar","overall due","pending amount"
 TOTAL_OVERDUE    → "total overdue","kitna overdue","overdue kitna","late payments","baaki overdue","overdue amount","overdue total"
-CLEAR_ALL_DUES   → "clear all dues","saare dues clear","[name] ka sara udhaar clear","[name] ke saare dues maaf","[name] ka hisab saaf","[name] ka account clear","[name] ke saare payment clear","settle [name]","[name] ka poora hisab clear"
-CLEAR_SINGLE_DUE → "[name] ka [date] wala udhaar clear","[name] ka [date] ka due clear","remove [name] [date] entry","[name] ki [date] wali entry hatao","[name] ka ek udhaar clear"
+CLEAR_ALL_DUES   → "clear all dues","saare dues clear","[name] ka sara udhaar clear","[name] ke saare dues maaf","[name] ka hisab saaf","[name] ka account clear","[name] ke saare payment clear","settle [name]","[name] ka poora hisab clear","clear overdue","clear overdue of [name]","[name] ka overdue clear","[name] ke saare overdue clear"
+CLEAR_SINGLE_DUE → "[name] ka [date] wala udhaar clear","[name] ka [date] ka due clear","remove [name] [date] entry","[name] ki [date] wali entry hatao","[name] ka ek udhaar clear","[name] ka [date] ka overdue clear","clear [name] [date] overdue"
 DUE_LIST         → "aaj ke due","kal kaun","payment aana hai","due list"
 CREDIT_SCORE     → "score","credit score","bharosa"
 CONFIRM_YES      → "yes","haan","ji","theek hai","ok","theek","proceed","kar do","karo","sure","confirm","ha","han"
@@ -45,6 +46,7 @@ dueDays: number from "X din mein"
 date: "today" | "tomorrow"
 period: "today" | "week"
 clearDate: For CLEAR_SINGLE_DUE - extract the specific date mentioned. Can be "today", "tomorrow", "aaj", "kal", or date like "15 march", "march 15", "15/03", etc. Convert to YYYY-MM-DD format if possible.
+overdueOnly: true if the user explicitly says "overdue" or "late" while clearing dues (e.g., "clear overdue", "overdue clear", "late payment clear").
 
 EXAMPLES:
 "madhur kumar ke account main 2000 rupees add kardo" → {"intent":"UDHAAR_ADD","entities":{"customerName":"Madhur Kumar","amount":2000}}
@@ -69,6 +71,9 @@ EXAMPLES:
 "ramesh ka aaj wala udhaar clear karo" → {"intent":"CLEAR_SINGLE_DUE","entities":{"customerName":"Ramesh","clearDate":"today"}}
 "rahul ka 15 march ka due hatao" → {"intent":"CLEAR_SINGLE_DUE","entities":{"customerName":"Rahul","clearDate":"2026-03-15"}}
 "anita ka kal wala entry remove karo" → {"intent":"CLEAR_SINGLE_DUE","entities":{"customerName":"Anita","clearDate":"tomorrow"}}
+"clear overdue of ramesh" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Ramesh","overdueOnly":true}}
+"ramesh ka overdue clear karo" → {"intent":"CLEAR_ALL_DUES","entities":{"customerName":"Ramesh","overdueOnly":true}}
+"ramesh ka 15 march ka overdue clear karo" → {"intent":"CLEAR_SINGLE_DUE","entities":{"customerName":"Ramesh","clearDate":"2026-03-15","overdueOnly":true}}
 
 IMPORTANT: 
 - If user asks about a specific customer's due/pending amount, use CUSTOMER_DUE
@@ -145,6 +150,20 @@ export async function extractIntent(transcript: string): Promise<NLPResult> {
     const raw = completion.choices[0]?.message?.content ?? '{}';
     console.log('[NLP] Raw response:', raw);
     const result = JSON.parse(raw.trim()) as NLPResult;
+    const normalized = normalizeSpaces(transcript.toLowerCase());
+    const wantsClear = /(clear|settle|maaf|hatao|hata|remove|delete|cancel)/.test(normalized);
+    const mentionsOverdue = /(overdue|late|past due|baaki overdue)/.test(normalized);
+    if (wantsClear && mentionsOverdue) {
+      result.entities = result.entities ?? {};
+      result.entities.overdueOnly = true;
+      if (result.intent === 'TOTAL_OVERDUE') {
+        result.intent = result.entities.clearDate ? 'CLEAR_SINGLE_DUE' : 'CLEAR_ALL_DUES';
+      } else if (result.intent === 'CLEAR_ALL_DUES' && result.entities.clearDate) {
+        result.intent = 'CLEAR_SINGLE_DUE';
+      } else if (result.intent === 'CLEAR_SINGLE_DUE' && !result.entities.clearDate) {
+        result.intent = 'CLEAR_ALL_DUES';
+      }
+    }
     console.log('[NLP] Parsed result:', result);
     return result;
   } catch (e) {

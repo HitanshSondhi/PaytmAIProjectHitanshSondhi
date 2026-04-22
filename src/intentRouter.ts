@@ -35,6 +35,10 @@ const RESPONSES = {
     noDuesToClear: (name: string) => `${name} ka koi pending due nahi hai clear karne ke liye.`,
     singleDueCleared: (name: string, amount: number, date: string) => `${name} ka ₹${amount.toFixed(0)} wala udhaar clear ho gaya jo ${date} ko due tha.`,
     singleDueNotFound: (name: string, date: string) => `${name} ka ${date} wala koi pending udhaar nahi mila.`,
+    allOverdueCleared: (name: string, count: number, total: number) => `${name} ke ${count} overdue dues clear ho gaye. Total ₹${total.toFixed(0)} settle ho gaya.`,
+    noOverdueToClear: (name: string) => `${name} ka koi overdue due nahi hai clear karne ke liye.`,
+    singleOverdueCleared: (name: string, amount: number, date: string) => `${name} ka ₹${amount.toFixed(0)} wala overdue udhaar clear ho gaya jo ${date} ko due tha.`,
+    singleOverdueNotFound: (name: string, date: string) => `${name} ka ${date} wala koi overdue udhaar nahi mila.`,
     dateMissing: () => 'Kaunsi date ka udhaar clear karna hai? Date bataiye.',
     confirmYes: () => 'Theek hai, udhaar add kar raha hoon.',
     confirmNo: () => 'Theek hai, udhaar cancel kar diya.',
@@ -64,6 +68,10 @@ const RESPONSES = {
     noDuesToClear: (name: string) => `${name} has no pending dues to clear.`,
     singleDueCleared: (name: string, amount: number, date: string) => `Cleared ₹${amount.toFixed(0)} udhaar for ${name} due on ${date}.`,
     singleDueNotFound: (name: string, date: string) => `No pending udhaar found for ${name} on ${date}.`,
+    allOverdueCleared: (name: string, count: number, total: number) => `Cleared ${count} overdue dues for ${name}. Total ₹${total.toFixed(0)} settled.`,
+    noOverdueToClear: (name: string) => `${name} has no overdue dues to clear.`,
+    singleOverdueCleared: (name: string, amount: number, date: string) => `Cleared overdue udhaar of ₹${amount.toFixed(0)} for ${name} due on ${date}.`,
+    singleOverdueNotFound: (name: string, date: string) => `No overdue udhaar found for ${name} on ${date}.`,
     dateMissing: () => 'Which date\'s udhaar do you want to clear? Please specify the date.',
     confirmYes: () => 'Okay, adding the udhaar now.',
     confirmNo: () => 'Okay, cancelled the udhaar.',
@@ -282,11 +290,12 @@ export async function routeIntent(
       if (!customer)
         return { responseText: r.customerNotFound(entities.customerName), responseType: 'unknown', responseData: {}, orbState: 'success' };
       
-      const result = await Q.clearAllCustomerDues(merchantId, customer.id);
+      const overdueOnly = Boolean(entities.overdueOnly);
+      const result = await Q.clearAllCustomerDues(merchantId, customer.id, overdueOnly);
       
       if (result.clearedCount === 0) {
         return {
-          responseText: r.noDuesToClear(customer.name),
+          responseText: overdueOnly ? r.noOverdueToClear(customer.name) : r.noDuesToClear(customer.name),
           responseType: 'clear_dues',
           responseData: { customer: customer.name, clearedCount: 0, totalCleared: 0 },
           orbState: 'success',
@@ -296,9 +305,12 @@ export async function routeIntent(
       // Invalidate caches for due list and score
       await invalidateCache(KEYS.dueList(merchantId, today));
       await invalidateCache(KEYS.score(customer.id));
+      await invalidateCache(KEYS.stats(merchantId));
       
       return {
-        responseText: r.allDuesCleared(customer.name, result.clearedCount, result.totalCleared),
+        responseText: overdueOnly
+          ? r.allOverdueCleared(customer.name, result.clearedCount, result.totalCleared)
+          : r.allDuesCleared(customer.name, result.clearedCount, result.totalCleared),
         responseType: 'clear_dues',
         responseData: { customer: customer.name, clearedCount: result.clearedCount, totalCleared: result.totalCleared, entries: result.entries },
         orbState: 'success',
@@ -330,11 +342,14 @@ export async function routeIntent(
         targetDate = clearDate;
       }
       
-      const result = await Q.clearSingleDue(merchantId, customer.id, targetDate);
+      const overdueOnly = Boolean(entities.overdueOnly);
+      const result = await Q.clearSingleDue(merchantId, customer.id, targetDate, overdueOnly);
       
       if (result.clearedCount === 0) {
         return {
-          responseText: r.singleDueNotFound(customer.name, targetDate),
+          responseText: overdueOnly
+            ? r.singleOverdueNotFound(customer.name, targetDate)
+            : r.singleDueNotFound(customer.name, targetDate),
           responseType: 'clear_single_due',
           responseData: { customer: customer.name, date: targetDate, cleared: false },
           orbState: 'warning',
@@ -344,9 +359,12 @@ export async function routeIntent(
       // Invalidate caches for due list and score
       await invalidateCache(KEYS.dueList(merchantId, targetDate));
       await invalidateCache(KEYS.score(customer.id));
+      await invalidateCache(KEYS.stats(merchantId));
       
       return {
-        responseText: r.singleDueCleared(customer.name, result.totalCleared, targetDate),
+        responseText: overdueOnly
+          ? r.singleOverdueCleared(customer.name, result.totalCleared, targetDate)
+          : r.singleDueCleared(customer.name, result.totalCleared, targetDate),
         responseType: 'clear_single_due',
         responseData: { customer: customer.name, date: targetDate, amount: result.totalCleared, cleared: true },
         orbState: 'success',

@@ -98,8 +98,28 @@ function isInvalidNameCandidate(value: string): boolean {
   const stopWords = new Set([
     'aaj', 'kal', 'today', 'tomorrow', 'week', 'hafte', 'is hafte',
     'total', 'overall', 'collection', 'payment', 'sale', 'bikri', 'store',
+    'due', 'udhaar', 'udhar', 'credit', 'score', 'account', 'khata', 'balance',
+    'hisab', 'overdue', 'pending', 'clear', 'settle', 'maaf', 'remove', 'delete',
+    'amount', 'list', 'payments', 'customer', 'naam',
   ]);
   return !v || stopWords.has(v);
+}
+
+function stripHonorifics(value: string): string {
+  const honorifics = new Set([
+    'ji', 'jee', 'sir', 'madam', 'mr', 'mrs', 'ms', 'shri', 'smt',
+    'bhai', 'bhaiya', 'didi', 'uncle', 'aunty',
+  ]);
+  const parts = normalizeSpaces(value).split(' ').filter(Boolean);
+  const cleaned = parts.filter((p) => !honorifics.has(p.toLowerCase()));
+  return normalizeSpaces(cleaned.join(' '));
+}
+
+function cleanNameCandidate(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const cleaned = stripHonorifics(value);
+  if (isInvalidNameCandidate(cleaned)) return undefined;
+  return cleaned;
 }
 
 function extractCustomerNameForCollection(transcript: string): string | undefined {
@@ -114,9 +134,28 @@ function extractCustomerNameForCollection(transcript: string): string | undefine
 
   const candidate = byPossessive?.[1] ?? byOfFrom?.[1];
   if (!candidate) return undefined;
-  const cleaned = normalizeSpaces(candidate);
-  if (isInvalidNameCandidate(cleaned)) return undefined;
-  return cleaned;
+  return cleanNameCandidate(candidate);
+}
+
+function extractCustomerNameGeneric(transcript: string): string | undefined {
+  const text = normalizeSpaces(transcript.toLowerCase());
+  const patterns: RegExp[] = [
+    /([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})\s+(?:ka|ke|ki)\s+(?:due|udhaar|udhar|payment|collection|score|account|khata|balance|hisab|overdue|credit)/i,
+    /(?:due|udhaar|udhar|payment|collection|score|account|khata|hisab|overdue)\s+(?:of|from)\s+([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})/i,
+    /(?:clear|settle|maaf|hatao|remove|delete|cancel)\s+(?:all\s+)?(?:dues|udhaar|udhar|payment|overdue|account|entry)?\s*(?:of\s+)?([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})/i,
+    /([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})\s+ko\s+(?:\d|ek|do|teen|char|paanch|chhe|saat|aath|nau|das|rupee|rupay|rs|₹|udhaar|udhar|credit|payment|jama|de|diya|bhejo)/i,
+    /(?:payment|collection)\s+(?:from|of)\s+([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})/i,
+    /(?:score|credit score)\s+(?:of|for)\s+([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})/i,
+    /(?:for|to)\s+([a-z\u0900-\u097f]+(?:\s+[a-z\u0900-\u097f]+){0,2})\s+(?:account|khata|udhaar|udhar|due|payment)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const candidate = match?.[1];
+    const cleaned = cleanNameCandidate(candidate);
+    if (cleaned) return cleaned;
+  }
+  return undefined;
 }
 
 export async function extractIntent(transcript: string): Promise<NLPResult> {
@@ -150,6 +189,18 @@ export async function extractIntent(transcript: string): Promise<NLPResult> {
     const raw = completion.choices[0]?.message?.content ?? '{}';
     console.log('[NLP] Raw response:', raw);
     const result = JSON.parse(raw.trim()) as NLPResult;
+    const fallbackName = extractCustomerNameGeneric(transcript);
+    if (!result.entities) result.entities = {};
+    if (!result.entities.customerName && fallbackName) {
+      result.entities.customerName = fallbackName;
+    } else if (result.entities.customerName) {
+      const cleaned = cleanNameCandidate(result.entities.customerName);
+      if (!cleaned && fallbackName) {
+        result.entities.customerName = fallbackName;
+      } else if (cleaned) {
+        result.entities.customerName = cleaned;
+      }
+    }
     const normalized = normalizeSpaces(transcript.toLowerCase());
     const wantsClear = /(clear|settle|maaf|hatao|hata|remove|delete|cancel)/.test(normalized);
     const mentionsOverdue = /(overdue|late|past due|baaki overdue)/.test(normalized);

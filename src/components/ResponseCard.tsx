@@ -65,7 +65,30 @@ export function ResponseCard({ response }: ResponseCardProps) {
                     </span>
                   )}
                 </div>
-              )}
+                )}
+          </div>
+        );
+      }
+
+      case "payment_recorded": {
+        const method = responseData.method as string | undefined;
+        return (
+          <div className="space-y-2">
+            <p className="text-white/80 text-sm leading-relaxed">
+              {responseText}
+            </p>
+            {responseData.amount !== undefined && (
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-green-400">
+                  ₹{Number(responseData.amount).toLocaleString("en-IN")}
+                </span>
+                {method && (
+                  <span className="text-xs text-white/40 uppercase">
+                    {method}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         );
       }

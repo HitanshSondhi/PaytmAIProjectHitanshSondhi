@@ -1,4 +1,4 @@
-import { query } from "./db";
+import pool, { query } from "./db";
 import { getScoreCategory, getScoreDelta } from "./scoringEngine";
 
 // Format date to IST (Indian Standard Time) - date only
@@ -362,6 +362,46 @@ export async function updateWhatsappConsent(
      WHERE id=$2`,
     [consent, customerId]
   );
+}
+
+export async function deleteCustomer(merchantId: number, customerId: number) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const customerRes = await client.query(
+      `SELECT id, name FROM customers WHERE id=$1 AND merchant_id=$2`,
+      [customerId, merchantId]
+    );
+    if (customerRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    await client.query(
+      `DELETE FROM score_events WHERE customer_id=$1`,
+      [customerId]
+    );
+    await client.query(
+      `DELETE FROM udhaar_ledger WHERE customer_id=$1 AND merchant_id=$2`,
+      [customerId, merchantId]
+    );
+    await client.query(
+      `DELETE FROM transactions WHERE customer_id=$1 AND merchant_id=$2`,
+      [customerId, merchantId]
+    );
+    await client.query(
+      `DELETE FROM customers WHERE id=$1 AND merchant_id=$2`,
+      [customerId, merchantId]
+    );
+
+    await client.query('COMMIT');
+    return { id: customerRes.rows[0].id, name: customerRes.rows[0].name };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export async function getDecryptedPhone(customerId: number): Promise<string | null> {

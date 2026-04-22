@@ -27,6 +27,50 @@ function formatDateTimeIST(date: Date | string): string {
   });
 }
 
+function normalizeSearchName(value: string): string {
+  const honorifics = [
+    'ji', 'jee', 'sir', 'madam', 'mr', 'mrs', 'ms', 'shri', 'smt',
+    'bhai', 'bhaiya', 'didi', 'uncle', 'aunty',
+  ];
+  const fillers = [
+    'ka', 'ke', 'ki', 'ko', 'se', 'mein', 'me', 'pe', 'par',
+    'wala', 'wali', 'wale', 'waala', 'waali', 'waale',
+    'customer', 'naam', 'account', 'khata', 'hisab', 'due', 'udhaar', 'udhar',
+    'payment', 'collection', 'score', 'credit', 'pending', 'overdue', 'clear',
+  ];
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(new RegExp(`\\b(${honorifics.join('|')})\\b`, 'gi'), ' ')
+    .replace(new RegExp(`\\b(${fillers.join('|')})\\b`, 'gi'), ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function containsDevanagari(value: string): boolean {
+  return /[\u0900-\u097f]/.test(value);
+}
+
+function transliterateDevanagariToLatin(value: string): string {
+  const map: Record<string, string> = {
+    'अ': 'a', 'आ': 'aa', 'इ': 'i', 'ई': 'i', 'उ': 'u', 'ऊ': 'u',
+    'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au',
+    'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'n',
+    'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'n',
+    'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
+    'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n',
+    'प': 'p', 'फ': 'ph', 'ब': 'b', 'भ': 'bh', 'म': 'm',
+    'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h',
+    'ं': 'n', 'ँ': 'n', 'ः': 'h',
+    'ा': 'a', 'ि': 'i', 'ी': 'i', 'ु': 'u', 'ू': 'u',
+    'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au',
+    'ृ': 'ri', 'ॅ': 'e', 'ॉ': 'o', '्': '',
+  };
+  return normalizeSearchName(
+    value.split('').map((ch) => map[ch] ?? ch).join('')
+  );
+}
+
 export async function getTodayCollection(merchantId: number) {
   const res = await query(
     `SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS txn_count
@@ -54,17 +98,49 @@ export async function getWeekCollection(merchantId: number) {
 }
 
 export async function fuzzyMatchCustomer(merchantId: number, name: string) {
+  const normalized = normalizeSearchName(name);
+  if (!normalized) return null;
+  const candidates = new Set<string>();
+  candidates.add(normalized);
+  if (containsDevanagari(name)) {
+    const transliterated = transliterateDevanagariToLatin(name);
+    if (transliterated) candidates.add(transliterated);
+  }
+  const searchNames = Array.from(candidates).filter(Boolean);
+  const simExpr = searchNames.map((_, i) => `similarity(name, $${i + 2})`).join(', ');
+  const simSelect = searchNames.length > 1 ? `GREATEST(${simExpr})` : simExpr;
   const res = await query(
-    `SELECT id, name, credit_score FROM customers
-     WHERE merchant_id=$1 AND name % $2
-     ORDER BY similarity(name,$2) DESC LIMIT 1`,
-    [merchantId, name]
+    `SELECT id, name, credit_score, ${simSelect} AS sim
+     FROM customers
+     WHERE merchant_id=$1
+     ORDER BY sim DESC
+     LIMIT 5`,
+    [merchantId, ...searchNames]
   );
-  if (res.rows.length === 0) return null;
+  if (res.rows.length > 0 && res.rows[0].sim >= 0.15) {
+    return {
+      id: res.rows[0].id,
+      name: res.rows[0].name,
+      creditScore: res.rows[0].credit_score,
+    };
+  }
+
+  const tokens = normalized.split(' ').filter((t) => t.length > 1);
+  if (tokens.length === 0) return null;
+  const tokenParams = tokens.map((t) => `%${t}%`);
+  const tokenWhere = tokens.map((_, i) => `name ILIKE $${i + 2}`).join(' OR ');
+  const tokenRes = await query(
+    `SELECT id, name, credit_score
+     FROM customers
+     WHERE merchant_id=$1 AND (${tokenWhere})
+     LIMIT 5`,
+    [merchantId, ...tokenParams]
+  );
+  if (tokenRes.rows.length === 0) return null;
   return {
-    id: res.rows[0].id,
-    name: res.rows[0].name,
-    creditScore: res.rows[0].credit_score,
+    id: tokenRes.rows[0].id,
+    name: tokenRes.rows[0].name,
+    creditScore: tokenRes.rows[0].credit_score,
   };
 }
 

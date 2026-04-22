@@ -177,14 +177,23 @@ export async function getDueList(merchantId: number, date: string) {
 
 export async function getCustomerTotalDue(merchantId: number, customerId: number) {
   const res = await query(
-    `SELECT COALESCE(SUM(amount), 0) AS total_due, COUNT(*) AS pending_count
+    `SELECT
+        COUNT(CASE WHEN status='PENDING' AND due_date >= CURRENT_DATE THEN 1 END) AS pending_count,
+        COALESCE(SUM(CASE WHEN status='PENDING' AND due_date >= CURRENT_DATE THEN amount END),0) AS pending_amount,
+        COUNT(CASE WHEN status='OVERDUE' OR (status='PENDING' AND due_date < CURRENT_DATE) THEN 1 END) AS overdue_count,
+        COALESCE(SUM(CASE WHEN status='OVERDUE' OR (status='PENDING' AND due_date < CURRENT_DATE) THEN amount END),0) AS overdue_amount
      FROM udhaar_ledger
-     WHERE merchant_id=$1 AND customer_id=$2 AND status='PENDING'`,
+     WHERE merchant_id=$1 AND customer_id=$2 AND status IN ('PENDING','OVERDUE')`,
     [merchantId, customerId]
   );
+  const pendingAmount = parseFloat(res.rows[0].pending_amount);
+  const overdueAmount = parseFloat(res.rows[0].overdue_amount);
   return {
-    totalDue: parseFloat(res.rows[0].total_due),
+    totalDue: pendingAmount + overdueAmount,
     pendingCount: parseInt(res.rows[0].pending_count),
+    overdueCount: parseInt(res.rows[0].overdue_count),
+    pendingAmount,
+    overdueAmount,
   };
 }
 

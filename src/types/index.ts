@@ -1,5 +1,5 @@
 export type Intent =
-  | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'UDHAAR_ADD'
+  | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'RECORD_PAYMENT' | 'UDHAAR_ADD'
   | 'DUE_LIST' | 'CREDIT_SCORE' | 'CUSTOMER_DUE' | 'CLEAR_ALL_DUES' | 'CLEAR_SINGLE_DUE'
   | 'TOTAL_PENDING' | 'CONFIRM_YES' | 'CONFIRM_NO' | 'UNKNOWN';
 
@@ -13,6 +13,7 @@ export interface NLPResult {
     period?: 'today' | 'week';
     clearDate?: string;
     overdueOnly?: boolean;
+    paymentMethod?: 'upi' | 'cash' | 'card';
   };
 }
 

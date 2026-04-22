@@ -170,7 +170,33 @@ Aaj Ramesh se koi payment nahi aaya.
 
 ---
 
-### 7. UDHAAR_ADD - Add Udhaar (Credit Entry)
+### 7. RECORD_PAYMENT - Record Payment (Jama Entry)
+**Purpose:** Record a payment received from a customer  
+**Returns:** Confirmation with amount and method
+
+**Supported Voice Commands:**
+- "[name] ke udhaar mein [amount] jama kar do"
+- "[name] se [amount] receive hua"
+- "[name] ka [amount] payment record karo"
+- "[name] ka paisa aa gaya"
+- "[amount] jama kar do [name] ka"
+
+**Method (optional):**
+- Say "UPI", "cash", or "card" to set the payment method.
+
+**Examples:**
+- "Suresh Gupta ke udhaar mein 500 jama kar do"
+- "Anita se 1000 receive hua"
+- "Mohan ka 500 UPI payment record karo"
+
+**Example Response:**
+```
+Suresh Gupta ka ₹500 payment cash se record ho gaya.
+```
+
+---
+
+### 8. UDHAAR_ADD - Add Udhaar (Credit Entry)
 **Purpose:** Record new credit/udhaar entry for a customer  
 **Returns:** Confirmation with due date and credit score (or warning if risky)
 
@@ -205,7 +231,7 @@ Warning: Ramesh ka credit score 45 hai — Risky. Pichla payment late tha. Sure 
 
 ---
 
-### 8. CREDIT_SCORE - Check Credit Score
+### 9. CREDIT_SCORE - Check Credit Score
 **Purpose:** Get a customer's credit/reliability score  
 **Returns:** Score (0-100) with category
 
@@ -226,7 +252,7 @@ Ramesh ka credit score 75 hai — Good.
 
 ---
 
-### 9. CLEAR_ALL_DUES - Clear All Dues (Settle Account)
+### 10. CLEAR_ALL_DUES - Clear All Dues (Settle Account)
 **Purpose:** Mark all pending dues of a customer as paid  
 **Returns:** Count of entries cleared and total amount
 
@@ -257,7 +283,7 @@ Ramesh ka koi pending due nahi hai clear karne ke liye.
 
 ---
 
-### 10. CLEAR_SINGLE_DUE - Clear Single Due Entry
+### 11. CLEAR_SINGLE_DUE - Clear Single Due Entry
 **Purpose:** Clear a specific udhaar entry by date  
 **Returns:** Confirmation with cleared amount
 
@@ -294,7 +320,7 @@ Ramesh ka 2026-04-01 wala koi pending udhaar nahi mila.
 
 When the system shows a warning for risky customers (credit score <60), it waits for confirmation.
 
-### 11. CONFIRM_YES - Proceed with Action
+### 12. CONFIRM_YES - Proceed with Action
 **Purpose:** Confirm adding udhaar after risky customer warning  
 **Returns:** Proceeds to add the udhaar
 
@@ -322,7 +348,7 @@ Theek hai, udhaar add kar raha hoon.
 
 ---
 
-### 12. CONFIRM_NO - Cancel Action
+### 13. CONFIRM_NO - Cancel Action
 **Purpose:** Cancel adding udhaar after risky customer warning  
 **Returns:** Cancels the operation
 

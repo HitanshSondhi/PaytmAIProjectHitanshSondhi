@@ -3,7 +3,7 @@ import Groq from "groq-sdk";
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export type Intent =
-  | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'UDHAAR_ADD'
+  | 'GET_COLLECTION' | 'CUSTOMER_PAYMENT' | 'RECORD_PAYMENT' | 'UDHAAR_ADD'
   | 'DUE_LIST' | 'CREDIT_SCORE' | 'CUSTOMER_DUE' | 'CLEAR_ALL_DUES' | 'CLEAR_SINGLE_DUE'
   | 'TOTAL_PENDING' | 'TOTAL_OVERDUE'
   | 'CONFIRM_YES' | 'CONFIRM_NO' | 'UNKNOWN';
@@ -18,6 +18,7 @@ export interface NLPResult {
     period?: 'today' | 'week';
     clearDate?: string;
     overdueOnly?: boolean;
+    paymentMethod?: 'upi' | 'cash' | 'card';
   };
 }
 
@@ -28,6 +29,7 @@ Return ONLY valid JSON. No markdown. No explanation.
 INTENTS:
 GET_COLLECTION   → "overall collection","aaj ka total collection","store collection","sale","bikri"
 CUSTOMER_PAYMENT → "[name] ka payment","[name] ne kitna diya","[name] ka collection","collection of [name]","payment from [name]"
+RECORD_PAYMENT   → "[name] ke udhaar mein [amount] jama","[name] se [amount] receive","[name] ka [amount] payment record","[name] ka paisa aa gaya","[amount] jama kar do"
 UDHAAR_ADD       → "udhaar add","credit add","add karo","add kardo","account main","khata mein","daal do","likho","[name] ko [amount]"
 CUSTOMER_DUE     → "[name] ka due","[name] ka total due","[name] kitna dena hai","[name] pe kitna baaki","[name] ka udhaar kitna"
 TOTAL_PENDING    → "total udhaar pending","kitna udhaar pending","total pending udhar","overall due","pending amount"
@@ -42,6 +44,7 @@ CONFIRM_NO       → "no","nahi","na","mana","reject","cancel","mat karo","ruko"
 ENTITIES:
 customerName: Extract the person's full name (can be 2-3 words like "Madhur Kumar", "Anita Patel"). Look for names before "ke/ka/ko/ki" or after mentions of account/udhaar.
 amount: Convert to number. Hindi: ek hazaar=1000, do hazaar=2000, paanch sau=500, das hazaar=10000. Also match "2000 rupees", "₹5000", etc.
+paymentMethod: "upi" | "cash" | "card" (infer from words like UPI/PhonePe/GPay/Paytm/QR/cash/nagad/card)
 dueDays: number from "X din mein"
 date: "today" | "tomorrow"
 period: "today" | "week"
@@ -54,6 +57,9 @@ EXAMPLES:
 "what is the total due of anita patel" → {"intent":"CUSTOMER_DUE","entities":{"customerName":"Anita Patel"}}
 "anita patel pe kitna baaki hai" → {"intent":"CUSTOMER_DUE","entities":{"customerName":"Anita Patel"}}
 "rahul ke khata mein 5000 daal do" → {"intent":"UDHAAR_ADD","entities":{"customerName":"Rahul","amount":5000}}
+"suresh gupta ke udhaar mein 500 jama kar do" → {"intent":"RECORD_PAYMENT","entities":{"customerName":"Suresh Gupta","amount":500}}
+"anita se 1000 receive hua" → {"intent":"RECORD_PAYMENT","entities":{"customerName":"Anita","amount":1000}}
+"mohan ka 500 UPI payment record karo" → {"intent":"RECORD_PAYMENT","entities":{"customerName":"Mohan","amount":500,"paymentMethod":"upi"}}
 "aaj ka collection batao" → {"intent":"GET_COLLECTION","entities":{"period":"today"}}
 "rahul ka credit score" → {"intent":"CREDIT_SCORE","entities":{"customerName":"Rahul"}}
 "aaj ke due payments" → {"intent":"DUE_LIST","entities":{"date":"today"}}
@@ -80,6 +86,7 @@ IMPORTANT:
 - If user asks overall pending udhaar without a customer name, use TOTAL_PENDING
 - If user asks about overdue/late payments (past due date), use TOTAL_OVERDUE
 - If user asks collection/payment for a specific customer, use CUSTOMER_PAYMENT (NOT GET_COLLECTION)
+- If user says "jama", "receive", "paisa aa gaya", or "payment record", use RECORD_PAYMENT
 - If user asks about today's/tomorrow's due list (without customer name), use DUE_LIST
 - If user wants to clear/settle/maaf ALL dues of a customer, use CLEAR_ALL_DUES
 - If user wants to clear a SPECIFIC date's udhaar entry, use CLEAR_SINGLE_DUE
@@ -158,6 +165,21 @@ function extractCustomerNameGeneric(transcript: string): string | undefined {
   return undefined;
 }
 
+function detectPaymentMethod(transcript: string): 'upi' | 'cash' | 'card' | undefined {
+  const text = transcript.toLowerCase();
+  if (/(upi|gpay|google pay|phonepe|paytm|qr|scan)/.test(text)) return 'upi';
+  if (/(card|debit|credit)/.test(text)) return 'card';
+  if (/(cash|nagad|rukha|rupay|rupees cash)/.test(text)) return 'cash';
+  return undefined;
+}
+
+function extractAmountFromTranscript(transcript: string): number | undefined {
+  const match = transcript.match(/(?:₹\s*)?(\d[\d,]*)/);
+  if (!match) return undefined;
+  const parsed = parseInt(match[1].replace(/,/g, ''), 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export async function extractIntent(transcript: string): Promise<NLPResult> {
   try {
     console.log('[NLP] Processing transcript:', transcript);
@@ -213,6 +235,25 @@ export async function extractIntent(transcript: string): Promise<NLPResult> {
         result.intent = 'CLEAR_SINGLE_DUE';
       } else if (result.intent === 'CLEAR_SINGLE_DUE' && !result.entities.clearDate) {
         result.intent = 'CLEAR_ALL_DUES';
+      }
+    }
+    const looksLikePaymentRecord = /(jama|receive|received|paisa aa gaya|paisa aaya|aaya|aagaya|mil gaya|vasool|payment record|payment aaya)/.test(normalized);
+    if (looksLikePaymentRecord) {
+      const amountFromText = extractAmountFromTranscript(transcript);
+      if (!result.entities.amount && amountFromText) {
+        result.entities.amount = amountFromText;
+      }
+      if (result.intent !== 'RECORD_PAYMENT' && result.entities.amount && result.entities.customerName) {
+        result.intent = 'RECORD_PAYMENT';
+      }
+    }
+    if (result.intent === 'RECORD_PAYMENT') {
+      const method = detectPaymentMethod(normalized);
+      if (!result.entities.paymentMethod && method) {
+        result.entities.paymentMethod = method;
+      }
+      if (!result.entities.paymentMethod) {
+        result.entities.paymentMethod = 'cash';
       }
     }
     console.log('[NLP] Parsed result:', result);

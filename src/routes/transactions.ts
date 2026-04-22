@@ -1,6 +1,7 @@
 import { Request, Response, Router } from "express";
 import { KEYS, invalidateCache } from "../cache";
 import { addScoreEvent, addTransaction } from "../queries";
+import { getScoreDelta } from "../scoringEngine";
 
 const router = Router();
 
@@ -17,8 +18,20 @@ router.post('/', async (req: Request, res: Response) => {
     if (result.hasPendingUdhaar && result.pendingDueDate) {
       const dueDate = new Date(result.pendingDueDate);
       const today = new Date();
-      const eventType = dueDate > today ? 'PAID_EARLY' : 'PAID_ONTIME';
-      const delta = eventType === 'PAID_EARLY' ? 5 : 2;
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      let eventType: string;
+      if (today < dueDate) {
+        eventType = 'PAID_EARLY';
+      } else if (today.getTime() === dueDate.getTime()) {
+        eventType = 'PAID_ONTIME';
+      } else {
+        const daysLate = Math.floor((today.getTime() - dueDate.getTime()) / 86400000);
+        if (daysLate <= 3) eventType = 'PAID_LATE_1_3';
+        else if (daysLate <= 7) eventType = 'PAID_LATE_4_7';
+        else eventType = 'PAID_LATE_7_PLUS';
+      }
+      const delta = getScoreDelta(eventType);
       await addScoreEvent(customerId, eventType, delta, `Payment of ₹${amount} recorded`);
       await invalidateCache(KEYS.score(customerId));
     }

@@ -1,7 +1,7 @@
 import * as Q from "./queries";
 import { KEYS, getCache, invalidateCache, setCache } from "./cache";
 import { Intent, NLPResult } from "./nlp";
-import { getScoreCategory } from "./scoringEngine";
+import { getScoreCategory, getScoreDelta } from "./scoringEngine";
 
 export interface RouteResult {
   responseText: string;
@@ -19,6 +19,7 @@ const RESPONSES = {
     customerNameMissing: () => 'Customer ka naam nahi mila.',
     noPaymentToday: (name: string) => `Aaj ${name} se koi payment nahi aaya.`,
     customerPayment: (name: string, total: number, method: string) => `${name} ne aaj ₹${total.toFixed(0)} diye hain, ${method} se.`,
+    paymentRecorded: (name: string, amount: number, method: string) => `${name} ka ₹${amount.toFixed(0)} payment ${method} se record ho gaya.`,
     udhaarMissingInfo: () => 'Customer ka naam aur amount dono boliye.',
     udhaarWarning: (name: string, score: number) => `Warning: ${name} ka credit score ${score} hai — Risky. Pichla payment late tha. Sure hain udhaar dena chahte hain?`,
     udhaarAdded: (name: string, amount: number, score: number, category: string, dueDate: string, createdAt: string) => `${name} ka ₹${amount} udhaar ${createdAt} ko add hua. Credit score ${score} — ${category}. Due date ${dueDate}.`,
@@ -52,6 +53,7 @@ const RESPONSES = {
     customerNameMissing: () => 'Customer name not provided.',
     noPaymentToday: (name: string) => `No payment received from ${name} today.`,
     customerPayment: (name: string, total: number, method: string) => `${name} paid ₹${total.toFixed(0)} today via ${method}.`,
+    paymentRecorded: (name: string, amount: number, method: string) => `Recorded ₹${amount.toFixed(0)} payment from ${name} via ${method}.`,
     udhaarMissingInfo: () => 'Please provide both customer name and amount.',
     udhaarWarning: (name: string, score: number) => `Warning: ${name}'s credit score is ${score} — Risky. Previous payment was late. Are you sure you want to add udhaar?`,
     udhaarAdded: (name: string, amount: number, score: number, category: string, dueDate: string, createdAt: string) => `Added ₹${amount} udhaar for ${name} at ${createdAt}. Credit score ${score} — ${category}. Due date ${dueDate}.`,
@@ -154,6 +156,44 @@ export async function routeIntent(
       };
     }
 
+    case 'RECORD_PAYMENT': {
+      if (!entities.customerName || !entities.amount)
+        return { responseText: r.udhaarMissingInfo(), responseType: 'unknown', responseData: {}, orbState: 'success' };
+      const customer = await Q.fuzzyMatchCustomer(merchantId, entities.customerName);
+      if (!customer)
+        return { responseText: r.customerNotFound(entities.customerName), responseType: 'unknown', responseData: {}, orbState: 'success' };
+      const method = entities.paymentMethod ?? 'cash';
+      const result = await Q.addTransaction(merchantId, customer.id, entities.amount, method);
+      await invalidateCache(KEYS.todayCollection(merchantId));
+      await invalidateCache(KEYS.stats(merchantId));
+      if (result.hasPendingUdhaar && result.pendingDueDate) {
+        const dueDate = new Date(result.pendingDueDate);
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        dueDate.setHours(0, 0, 0, 0);
+        let eventType: string;
+        if (todayDate < dueDate) {
+          eventType = 'PAID_EARLY';
+        } else if (todayDate.getTime() === dueDate.getTime()) {
+          eventType = 'PAID_ONTIME';
+        } else {
+          const daysLate = Math.floor((todayDate.getTime() - dueDate.getTime()) / 86400000);
+          if (daysLate <= 3) eventType = 'PAID_LATE_1_3';
+          else if (daysLate <= 7) eventType = 'PAID_LATE_4_7';
+          else eventType = 'PAID_LATE_7_PLUS';
+        }
+        const delta = getScoreDelta(eventType);
+        await Q.addScoreEvent(customer.id, eventType, delta, `Payment of ₹${entities.amount} recorded`);
+        await invalidateCache(KEYS.score(customer.id));
+      }
+      return {
+        responseText: r.paymentRecorded(customer.name, entities.amount, method),
+        responseType: 'payment_recorded',
+        responseData: { customer: customer.name, amount: entities.amount, method },
+        orbState: 'success',
+      };
+    }
+
     case 'UDHAAR_ADD': {
       if (!entities.customerName || !entities.amount)
         return { responseText: r.udhaarMissingInfo(), responseType: 'unknown', responseData: {}, orbState: 'success' };
@@ -242,15 +282,28 @@ export async function routeIntent(
         return {
           responseText: r.customerNoDue(customer.name),
           responseType: 'customer_due',
-          responseData: { customer: customer.name, totalDue: 0, pendingCount: 0, score: scoreData.score, category: scoreData.category },
+          responseData: { customer: customer.name, totalDue: 0, pendingCount: 0, overdueCount: 0, pendingAmount: 0, overdueAmount: 0, score: scoreData.score, category: scoreData.category },
           orbState: 'success',
         };
       }
-      
+      const overdueNote = dueData.overdueCount > 0
+        ? (lang === 'en-IN'
+          ? ` Overdue ₹${dueData.overdueAmount.toFixed(0)} (${dueData.overdueCount} ${dueData.overdueCount === 1 ? 'entry' : 'entries'}).`
+          : ` Overdue ₹${dueData.overdueAmount.toFixed(0)} ke ${dueData.overdueCount} ${dueData.overdueCount === 1 ? 'entry' : 'entries'} hain.`)
+        : '';
       return {
-        responseText: r.customerDue(customer.name, dueData.totalDue, dueData.pendingCount, scoreData.score, scoreData.category),
+        responseText: r.customerDue(customer.name, dueData.totalDue, dueData.pendingCount, scoreData.score, scoreData.category) + overdueNote,
         responseType: 'customer_due',
-        responseData: { customer: customer.name, totalDue: dueData.totalDue, pendingCount: dueData.pendingCount, score: scoreData.score, category: scoreData.category },
+        responseData: {
+          customer: customer.name,
+          totalDue: dueData.totalDue,
+          pendingCount: dueData.pendingCount,
+          overdueCount: dueData.overdueCount,
+          pendingAmount: dueData.pendingAmount,
+          overdueAmount: dueData.overdueAmount,
+          score: scoreData.score,
+          category: scoreData.category,
+        },
         orbState: scoreData.score >= 60 ? 'success' : 'warning',
       };
     }
